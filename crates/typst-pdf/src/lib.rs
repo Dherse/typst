@@ -14,6 +14,7 @@ use std::hash::Hash;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use gradient::PdfOpacityGradient;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::doc::{Document, Lang};
@@ -56,6 +57,7 @@ pub fn pdf(
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
+    gradient::write_gradients_soft_masks(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
@@ -99,6 +101,14 @@ struct PdfContext<'a> {
     gradient_refs: Vec<Ref>,
     /// The IDs of written external graphics states.
     ext_gs_refs: Vec<Ref>,
+    /// The IDs of written shading dictionaries.
+    ///
+    /// These are only used for transparency of gradients.
+    shading_refs: Vec<Ref>,
+    /// The IDs of written external graphics states for transparency.
+    ///
+    /// These are only used for transparency of gradients.
+    transparency_ext_gs_refs: Vec<Ref>,
     /// Handles color space writing.
     colors: ColorSpaces,
 
@@ -112,6 +122,8 @@ struct PdfContext<'a> {
     gradient_map: Remapper<PdfGradient>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+    /// Deduplicates gradient opacity masks used across the document.
+    opacity_mask_map: Remapper<PdfOpacityGradient>,
 }
 
 impl<'a> PdfContext<'a> {
@@ -132,12 +144,15 @@ impl<'a> PdfContext<'a> {
             image_refs: vec![],
             gradient_refs: vec![],
             ext_gs_refs: vec![],
+            shading_refs: vec![],
+            transparency_ext_gs_refs: vec![],
             colors: ColorSpaces::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             image_deferred_map: HashMap::default(),
             gradient_map: Remapper::new(),
             extg_map: Remapper::new(),
+            opacity_mask_map: Remapper::new(),
         }
     }
 }

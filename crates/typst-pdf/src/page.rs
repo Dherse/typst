@@ -116,11 +116,21 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
         patterns.pair(Name(name.as_bytes()), gradient_ref);
     }
 
+    for (sh, shading_ref) in ctx.shading_refs.iter().enumerate() {
+        let name = eco_format!("Sh{sh}");
+        patterns.pair(Name(name.as_bytes()), shading_ref);
+    }
+
     patterns.finish();
 
     let mut ext_gs_states = resources.ext_g_states();
     for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
         let name = eco_format!("Gs{}", gs);
+        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
+    }
+
+    for (gs_ref, gs) in ctx.opacity_mask_map.pdf_indices(&ctx.transparency_ext_gs_refs) {
+        let name = eco_format!("Tgs{gs}");
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
     ext_gs_states.finish();
@@ -349,7 +359,7 @@ impl PageContext<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            self.parent.extg_map.insert(*graphics_state);
+            self.parent.extg_map.insert(graphics_state.clone());
             let name = eco_format!("Gs{}", self.parent.extg_map.map(graphics_state));
             self.content.set_parameters(Name(name.as_bytes()));
 

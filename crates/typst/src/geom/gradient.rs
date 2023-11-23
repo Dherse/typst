@@ -826,6 +826,14 @@ impl Gradient {
         };
         Angle::rad(rad.rem_euclid(TAU))
     }
+
+    /// Returns whether this gradient has opacity.
+    pub fn has_opacity(&self) -> bool {
+        self.stops_ref()
+            .iter()
+            .filter_map(|(c, _)| c.alpha())
+            .any(|alpha| alpha < 1.0)
+    }
 }
 
 impl Debug for Gradient {
