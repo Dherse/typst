@@ -634,7 +634,6 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
         ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
-
     if !stroke.map_or(false, |s| s.paint.is_gradient() && s.paint.has_opacity()) &&
         !shape.fill.as_ref().map_or(true, |f| f.is_gradient() && f.has_opacity()) {
         ctx.set_opacities(stroke, shape.fill.as_ref());

@@ -1,17 +1,17 @@
-<svg class="typst-doc" viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+<svg class="typst-doc" viewBox="0 0 500 500" width="500" height="500" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
     <g>
         <g transform="translate(0 0)">
-            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 100 L 100 100 L 100 0 Z "/>
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 500 L 500 500 L 500 0 Z "/>
         </g>
         <g transform="translate(-0 -0)">
-            <path class="typst-shape" fill="#80800064" d="M 0 0 L 0 20 L 100 20 L 100 0 Z "/>
+            <path class="typst-shape" fill="#80800064" d="M 0 0 L 0 500 L 500 500 L 500 0 Z "/>
         </g>
         <g transform="translate(5 5)">
-            <path class="typst-shape" fill="url(#g89CAD04DFAC296270196CAE4D90A97CD)" d="M 0 0 L 0 10 L 90 10 L 90 0 Z "/>
+            <path class="typst-shape" fill="url(#g974D340FE43BFADC2602396B2218FEE9)" d="M 0 0 L 0 490 L 490 490 L 490 0 Z "/>
         </g>
     </g>
     <defs id="gradients">
-        <linearGradient id="fB042EE78533CFD0764C287EA4ABF2DF1" spreadMethod="pad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient id="f33CB0B8990FFBCAD975367B74428EFC8" spreadMethod="pad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stop-color="#ffffff00"/>
             <stop offset="0.5%" stop-color="#ffffff00"/>
             <stop offset="1%" stop-color="#ffffff00"/>
@@ -219,6 +219,6 @@
         </linearGradient>
     </defs>
     <defs id="gradient-refs">
-        <linearGradient gradientTransform="matrix(90 0 0 10 0 0)" id="g89CAD04DFAC296270196CAE4D90A97CD" href="#fB042EE78533CFD0764C287EA4ABF2DF1" xlink:href="#fB042EE78533CFD0764C287EA4ABF2DF1"/>
+        <linearGradient gradientTransform="matrix(490 0 0 490 0 0)" id="g974D340FE43BFADC2602396B2218FEE9" href="#f33CB0B8990FFBCAD975367B74428EFC8" xlink:href="#f33CB0B8990FFBCAD975367B74428EFC8"/>
     </defs>
 </svg>

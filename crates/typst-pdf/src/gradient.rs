@@ -11,7 +11,7 @@ use typst::geom::{
     Ratio, Relative, Size, Transform, WeightedColor,
 };
 
-use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor, D65_GRAY};
+use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor, D65_GRAY, OKLAB};
 use crate::page::{PageContext, Transforms};
 use crate::{deflate, AbsExt, PdfContext};
 
@@ -292,6 +292,7 @@ fn shading_soft_mask(
 
             let mut shading = ctx.pdf.function_shading(shading);
             shading.shading_type(FunctionShadingType::Axial);
+
             ctx.colors
                 .write(ColorSpace::D65Gray, shading.color_space(), &mut ctx.alloc);
 
@@ -313,8 +314,7 @@ fn shading_soft_mask(
                 .anti_alias(gradient.anti_alias())
                 .function(function_ref)
                 .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
-                .extend([true; 2])
-                .matrix(transform_to_array(transform));
+                .extend([true; 2]);
 
             shading.finish();
         }
@@ -338,14 +338,12 @@ fn shading_soft_mask(
                     radial.center.y.get() as f32,
                     radial.radius.get() as f32,
                 ])
-                .extend([true; 2])
-                .matrix(transform_to_array(transform));
+                .extend([true; 2]);
 
             shading.finish();
         }
         Gradient::Conic(conic) => {
             let vertices = compute_vertex_stream_grayscale(conic, aspect_ratio);
-
             let mut stream_shading = ctx.pdf.stream_shading(shading, &vertices);
 
             ctx.colors.write(
@@ -376,7 +374,7 @@ fn shading_soft_mask(
     let mut x_object = ctx.pdf.form_xobject(x_object_id, &content_stream);
 
     let mut resources = x_object.resources();
-    ctx.colors.write(ColorSpace::D65Gray, resources.color_spaces().insert(D65_GRAY).start(), &mut ctx.alloc);
+    ctx.colors.write(gradient.space(), resources.color_spaces().insert(OKLAB).start(), &mut ctx.alloc);
     resources.shadings().pair(Name(b"Sh"), shading);
 
     resources.finish();
