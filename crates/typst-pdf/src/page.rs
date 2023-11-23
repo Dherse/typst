@@ -116,11 +116,6 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
         patterns.pair(Name(name.as_bytes()), gradient_ref);
     }
 
-    for (sh, shading_ref) in ctx.shading_refs.iter().enumerate() {
-        let name = eco_format!("Sh{sh}");
-        patterns.pair(Name(name.as_bytes()), shading_ref);
-    }
-
     patterns.finish();
 
     let mut ext_gs_states = resources.ext_g_states();
@@ -566,7 +561,10 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
 
     ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
     ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(None, Some(&text.fill));
+
+    if !(text.fill.is_gradient() && text.fill.has_opacity()) {
+        ctx.set_opacities(None, Some(&text.fill));
+    }
     ctx.content.begin_text();
 
     // Positiosn the text.
@@ -636,7 +634,11 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
         ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
-    ctx.set_opacities(stroke, shape.fill.as_ref());
+
+    if !stroke.map_or(false, |s| s.paint.is_gradient() && s.paint.has_opacity()) &&
+        !shape.fill.as_ref().map_or(true, |f| f.is_gradient() && f.has_opacity()) {
+        ctx.set_opacities(stroke, shape.fill.as_ref());
+    };
 
     match shape.geometry {
         Geometry::Line(target) => {

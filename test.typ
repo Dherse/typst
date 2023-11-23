@@ -1,4 +1,4 @@
-#set page(width: 100pt, height: 100pt, margin: 0pt, fill: blue)
+#set page(width: 100pt, height: 30pt, margin: 0pt, fill: blue)
 
 // gradient has white background in PDF export
 #let transparent = rgb(255, 255, 255, 0)

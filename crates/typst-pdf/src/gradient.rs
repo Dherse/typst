@@ -11,7 +11,7 @@ use typst::geom::{
     Ratio, Relative, Size, Transform, WeightedColor,
 };
 
-use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
+use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor, D65_GRAY};
 use crate::page::{PageContext, Transforms};
 use crate::{deflate, AbsExt, PdfContext};
 
@@ -285,18 +285,15 @@ fn shading_soft_mask(
 
     let x_object_id = ctx.alloc.bump();
     let shading = ctx.alloc.bump();
-    let idx = ctx.shading_refs.len();
-    ctx.shading_refs.push(shading);
     match gradient {
         Gradient::Linear(linear) => {
-            let shading_function = shading_function_opacity(ctx, &linear.stops);
+            let function_ref = ctx.alloc.bump();
+            shading_function_opacity(ctx, function_ref, &linear.stops);
 
-            let mut shading_pattern = ctx.pdf.shading_pattern(shading);
-            let mut shading = shading_pattern.function_shading();
+            let mut shading = ctx.pdf.function_shading(shading);
             shading.shading_type(FunctionShadingType::Axial);
             ctx.colors
                 .write(ColorSpace::D65Gray, shading.color_space(), &mut ctx.alloc);
-            shading.function(shading_function);
 
             let (sin, cos) = (angle.sin(), angle.cos());
             let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
@@ -314,22 +311,25 @@ fn shading_soft_mask(
 
             shading
                 .anti_alias(gradient.anti_alias())
-                .function(shading_function)
+                .function(function_ref)
                 .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
-                .extend([true; 2]);
+                .extend([true; 2])
+                .matrix(transform_to_array(transform));
+
+            shading.finish();
         }
         Gradient::Radial(radial) => {
-            let shading_function = shading_function_opacity(ctx, &radial.stops);
+            let function_ref = ctx.alloc.bump();
+            shading_function_opacity(ctx, function_ref, &radial.stops);
 
-            let mut shading_pattern = ctx.pdf.shading_pattern(shading);
-            let mut shading = shading_pattern.function_shading();
+            let mut shading = ctx.pdf.function_shading(shading);
             shading.shading_type(FunctionShadingType::Radial);
             ctx.colors
                 .write(ColorSpace::D65Gray, shading.color_space(), &mut ctx.alloc);
 
             shading
                 .anti_alias(gradient.anti_alias())
-                .function(shading_function)
+                .function(function_ref)
                 .coords([
                     radial.focal_center.x.get() as f32,
                     radial.focal_center.y.get() as f32,
@@ -338,13 +338,15 @@ fn shading_soft_mask(
                     radial.center.y.get() as f32,
                     radial.radius.get() as f32,
                 ])
-                .extend([true; 2]);
+                .extend([true; 2])
+                .matrix(transform_to_array(transform));
+
+            shading.finish();
         }
         Gradient::Conic(conic) => {
             let vertices = compute_vertex_stream_grayscale(conic, aspect_ratio);
 
-            let stream_shading_id = ctx.alloc.bump();
-            let mut stream_shading = ctx.pdf.stream_shading(stream_shading_id, &vertices);
+            let mut stream_shading = ctx.pdf.stream_shading(shading, &vertices);
 
             ctx.colors.write(
                 ColorSpace::D65Gray,
@@ -363,24 +365,19 @@ fn shading_soft_mask(
                 .filter(Filter::FlateDecode);
 
             stream_shading.finish();
-
-            let mut shading_pattern = ctx.pdf.shading_pattern(shading);
-            shading_pattern.shading_ref(stream_shading_id);
         }
     }
 
-    let name = eco_format!("Sh{idx}");
     let mut content = Content::new();
     content.transform(transform_to_array(transform));
-    content.shading(Name(name.as_bytes()));
+    content.shading(Name(b"Sh"));
     let content_stream = deflate(&content.finish());
 
     let mut x_object = ctx.pdf.form_xobject(x_object_id, &content_stream);
 
     let mut resources = x_object.resources();
-    ctx.colors
-        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
-    resources.shadings().pair(Name(name.as_bytes()), shading);
+    ctx.colors.write(ColorSpace::D65Gray, resources.color_spaces().insert(D65_GRAY).start(), &mut ctx.alloc);
+    resources.shadings().pair(Name(b"Sh"), shading);
 
     resources.finish();
 
@@ -411,8 +408,7 @@ fn shading_soft_mask(
 }
 
 /// Writes an expotential or stitched function that expresses the gradient's oppacity.
-fn shading_function_opacity(ctx: &mut PdfContext, stops: &[(Color, Ratio)]) -> Ref {
-    let function = ctx.alloc.bump();
+fn shading_function_opacity(ctx: &mut PdfContext, ref_: Ref, stops: &[(Color, Ratio)]) {
     let mut functions = vec![];
     let mut bounds = vec![];
     let mut encode = vec![];
@@ -431,13 +427,8 @@ fn shading_function_opacity(ctx: &mut PdfContext, stops: &[(Color, Ratio)]) -> R
         let second_col = Color::from(second.0.alpha_as_luma());
 
         bounds.push(second.1.get() as f32);
-        functions.push(single_gradient(ctx, first_col, second_col, ColorSpace::D65Gray));
+        functions.push(single_gradient_grayscale(ctx, first_col, second_col));
         encode.extend([0.0, 1.0]);
-    }
-
-    // Special case for gradients with only two stops.
-    if functions.len() == 1 {
-        return functions[0];
     }
 
     // Remove the last bound, since it's not needed for the stitching function.
@@ -445,14 +436,12 @@ fn shading_function_opacity(ctx: &mut PdfContext, stops: &[(Color, Ratio)]) -> R
 
     // Create the stitching function.
     ctx.pdf
-        .stitching_function(function)
+        .stitching_function(ref_)
         .domain([0.0, 1.0])
-        .range(ColorSpace::D65Gray.range())
+        .range([0.0, 1.0])
         .functions(functions)
         .bounds(bounds)
         .encode(encode);
-
-    function
 }
 
 /// Writes an expontential function that expresses a single segment (between two
@@ -470,6 +459,26 @@ fn single_gradient(
         .range(color_space.range())
         .c0(color_space.convert(first_color))
         .c1(color_space.convert(second_color))
+        .domain([0.0, 1.0])
+        .n(1.0);
+
+    reference
+}
+
+/// Writes an expontential function that expresses a single segment (between two
+/// stops) of a gradient.
+fn single_gradient_grayscale(
+    ctx: &mut PdfContext,
+    first_color: Color,
+    second_color: Color,
+) -> Ref {
+    let reference = ctx.alloc.bump();
+
+    ctx.pdf
+        .exponential_function(reference)
+        .range([0.0, 1.0])
+        .c0([ColorSpace::D65Gray.convert::<f32>(first_color)[0]])
+        .c1([ColorSpace::D65Gray.convert::<f32>(second_color)[0]])
         .domain([0.0, 1.0])
         .n(1.0);
 

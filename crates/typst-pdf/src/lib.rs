@@ -101,10 +101,6 @@ struct PdfContext<'a> {
     gradient_refs: Vec<Ref>,
     /// The IDs of written external graphics states.
     ext_gs_refs: Vec<Ref>,
-    /// The IDs of written shading dictionaries.
-    ///
-    /// These are only used for transparency of gradients.
-    shading_refs: Vec<Ref>,
     /// The IDs of written external graphics states for transparency.
     ///
     /// These are only used for transparency of gradients.
@@ -144,7 +140,6 @@ impl<'a> PdfContext<'a> {
             image_refs: vec![],
             gradient_refs: vec![],
             ext_gs_refs: vec![],
-            shading_refs: vec![],
             transparency_ext_gs_refs: vec![],
             colors: ColorSpaces::default(),
             font_map: Remapper::new(),

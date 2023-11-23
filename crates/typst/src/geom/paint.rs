@@ -30,6 +30,19 @@ impl Paint {
             }
         }
     }
+
+    /// Returns `true` if this paint is a gradient.
+    pub fn is_gradient(&self) -> bool {
+        matches!(self, Self::Gradient(_))
+    }
+
+    /// Returns `true` if this paint has an opacity less than 1.0.
+    pub fn has_opacity(&self) -> bool {
+        match self {
+            Paint::Solid(solid) => solid.alpha().map_or(false, |alpha| alpha < 1.0),
+            Paint::Gradient(gradient) => gradient.has_opacity()
+        }
+    }
 }
 
 impl Debug for Paint {
