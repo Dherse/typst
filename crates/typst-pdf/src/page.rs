@@ -14,8 +14,8 @@ use typst::doc::{
 };
 use typst::font::Font;
 use typst::geom::{
-    self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
-    Ratio, Shape, Size, Transform,
+    self, Abs, ColorSpace, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
+    Point, Ratio, Shape, Size, Transform,
 };
 use typst::image::Image;
 
@@ -152,13 +152,16 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     page_writer.contents(content_id);
 
     if page.uses_opacities {
-        page_writer
-            .group()
-            .transparency()
-            .isolated(false)
-            .knockout(false)
-            .color_space()
-            .srgb();
+        ctx.colors.write(
+            ColorSpace::Srgb,
+            page_writer
+                .group()
+                .transparency()
+                .isolated(true)
+                .knockout(false)
+                .color_space(),
+            &mut ctx.alloc,
+        );
     }
 
     let mut annotations = page_writer.annotations();
@@ -278,7 +281,7 @@ pub struct PageContext<'a, 'b> {
     state: State,
     saves: Vec<State>,
     bottom: f32,
-    uses_opacities: bool,
+    pub uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
 }
 
@@ -292,6 +295,8 @@ struct State {
     container_transform: Transform,
     /// The size of the first hard frame in the hierarchy.
     size: Size,
+    /// The size of the whole page
+    page_size: Size,
     font: Option<(Font, Abs)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
@@ -307,6 +312,7 @@ impl State {
             transform: Transform::identity(),
             container_transform: Transform::identity(),
             size,
+            page_size: size,
             font: None,
             fill: None,
             fill_space: None,
@@ -323,6 +329,7 @@ impl State {
             container_transform: self.container_transform,
             container_size: self.size,
             size,
+            page_size: self.page_size,
         }
     }
 }
@@ -338,6 +345,8 @@ pub(super) struct Transforms {
     pub container_size: Size,
     /// The size of the item.
     pub size: Size,
+    /// The size of the whole page
+    pub page_size: Size,
 }
 
 impl PageContext<'_, '_> {
@@ -354,7 +363,7 @@ impl PageContext<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            self.parent.extg_map.insert(graphics_state.clone());
+            self.parent.extg_map.insert(*graphics_state);
             let name = eco_format!("Gs{}", self.parent.extg_map.map(graphics_state));
             self.content.set_parameters(Name(name.as_bytes()));
 
@@ -559,12 +568,9 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
+    ctx.set_opacities(None, Some(&text.fill));
     ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
     ctx.set_font(&text.font, text.size);
-
-    if !(text.fill.is_gradient() && text.fill.has_opacity()) {
-        ctx.set_opacities(None, Some(&text.fill));
-    }
     ctx.content.begin_text();
 
     // Positiosn the text.
@@ -626,6 +632,7 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
         return;
     }
 
+    ctx.set_opacities(stroke, shape.fill.as_ref());
     if let Some(fill) = &shape.fill {
         ctx.set_fill(fill, false, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
@@ -633,11 +640,6 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     if let Some(stroke) = stroke {
         ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
-
-    if !stroke.map_or(false, |s| s.paint.is_gradient() && s.paint.has_opacity()) &&
-        !shape.fill.as_ref().map_or(true, |f| f.is_gradient() && f.has_opacity()) {
-        ctx.set_opacities(stroke, shape.fill.as_ref());
-    };
 
     match shape.geometry {
         Geometry::Line(target) => {

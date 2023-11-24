@@ -155,6 +155,29 @@ use crate::syntax::{Span, Spanned};
 /// )
 /// ```
 ///
+/// # Transparency
+///
+/// Transparency is supported in all gradient types. However, to have transparency
+/// support, you must set the `space` to a color space with transparency support.
+/// The following color spaces support transparency:
+/// - [Oklab]($color.oklab)
+/// - [Oklch]($color.oklch)
+/// - [sRGB]($color.rgb)
+/// - [linear-RGB]($color.linear-rgb)
+/// - [HSL]($color.hsl)
+/// - [HSV]($color.hsv)
+///
+/// Essentially, any color space that is not [CMYK]($color.cmyk) or
+/// [Grayscale]($color.luma) supports transparency.
+///
+/// ## Note on PDF support for transparency
+///
+/// Some PDF readers, most notably [mupdf](https://mupdf.com/) based ones
+/// such as [SumatraPDF](https://www.sumatrapdfreader.org/free-pdf-reader) or
+/// [evince](https://wiki.gnome.org/Apps/Evince) can struggle with conic gradients
+/// with transparency, this will demonstrate itself as severe color banding in the
+/// gradient. However, all other gradient types should work fine with transparency.
+///
 /// # Presets
 /// Typst predefines color maps that you can use with your gradients. See the
 /// [`color`]($color/#predefined-color-maps) documentation for more details.

@@ -11,7 +11,7 @@ use typst::geom::{
     Ratio, Relative, Size, Transform, WeightedColor,
 };
 
-use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor, D65_GRAY, OKLAB};
+use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::page::{PageContext, Transforms};
 use crate::{deflate, AbsExt, PdfContext};
 
@@ -21,6 +21,13 @@ use crate::{deflate, AbsExt, PdfContext};
 pub struct PdfGradient {
     /// The transform to apply to the gradient.
     pub transform: Transform,
+    pub raw_transform: Transform,
+    /// The size of the gradient.
+    /// Required for the soft mask.
+    pub size: Size,
+    /// The size of the page.
+    /// Required for the soft mask.
+    pub page_size: Size,
     /// The aspect ratio of the gradient.
     /// Required for aspect ratio correction.
     pub aspect_ratio: Ratio,
@@ -30,25 +37,66 @@ pub struct PdfGradient {
     pub angle: Angle,
 }
 
-/// A unique-transform-size combination that will be encoded into the
-/// PDF.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct PdfOpacityGradient {
-    /// The transform to apply to the gradient.
-    pub transform: Transform,
-    /// The aspect size of the gradient.
-    /// Required for aspect ratio correction and for the soft mask.
-    pub size: Size,
-    /// The gradient.
-    pub gradient: Gradient,
-    /// The corrected angle of the gradient.
-    pub angle: Angle,
+impl PdfGradient {
+    pub fn new(mut transforms: Transforms, gradient: &Gradient, on_text: bool) -> Self {
+        // Edge cases for strokes.
+        if transforms.size.x.is_zero() {
+            transforms.size.x = Abs::pt(1.0);
+        }
+
+        if transforms.size.y.is_zero() {
+            transforms.size.y = Abs::pt(1.0);
+        }
+
+        let size = match gradient.unwrap_relative(on_text) {
+            Relative::Self_ => transforms.size,
+            Relative::Parent => transforms.container_size,
+        };
+
+        let (offset_x, offset_y) = match gradient {
+            Gradient::Conic(conic) => (
+                -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
+                -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
+            ),
+            _ => (Abs::zero(), Abs::zero()),
+        };
+
+        let rotation = gradient.angle().unwrap_or_else(Angle::zero);
+
+        let transform = match gradient.unwrap_relative(on_text) {
+            Relative::Self_ => transforms.transform,
+            Relative::Parent => transforms.container_transform,
+        };
+
+        let scale_offset = match gradient {
+            Gradient::Conic(_) => 4.0_f64,
+            _ => 1.0,
+        };
+
+        Self {
+            size,
+            page_size: transforms.page_size,
+            aspect_ratio: size.aspect_ratio(),
+            raw_transform: transform,
+            transform: transform
+                .pre_concat(Transform::translate(
+                    offset_x * scale_offset,
+                    offset_y * scale_offset,
+                ))
+                .pre_concat(Transform::scale(
+                    Ratio::new(size.x.to_pt() * scale_offset),
+                    Ratio::new(size.y.to_pt() * scale_offset),
+                )),
+            gradient: gradient.clone(),
+            angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
+        }
+    }
 }
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub(crate) fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, aspect_ratio, gradient, angle } in
+    for PdfGradient { transform, aspect_ratio, gradient, angle, .. } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
@@ -261,148 +309,164 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub(crate) fn write_gradients_soft_masks(ctx: &mut PdfContext) {
-    for PdfOpacityGradient { transform, size, gradient, angle } in
-        ctx.opacity_mask_map.items().cloned().collect::<Vec<_>>()
+    for PdfGradient {
+        aspect_ratio,
+        gradient,
+        angle,
+        page_size,
+        transform,
+        ..
+    } in ctx.opacity_mask_map.items().cloned().collect::<Vec<_>>()
     {
-        let aspect_ratio = size.aspect_ratio();
-        shading_soft_mask(ctx, transform, &gradient, angle, aspect_ratio, size);
-    }
-}
-
-/// Creates a soft mask for a gradient.
-fn shading_soft_mask(
-    ctx: &mut PdfContext,
-    transform: Transform,
-    gradient: &Gradient,
-    angle: Angle,
-    aspect_ratio: Ratio,
-    size: Size,
-) -> Ref {
-    // If the gradient is opaque, we don't need a soft mask.
-    if !gradient.has_opacity() {
-        unreachable!()
-    }
-
-    let x_object_id = ctx.alloc.bump();
-    let shading = ctx.alloc.bump();
-    match gradient {
-        Gradient::Linear(linear) => {
-            let function_ref = ctx.alloc.bump();
-            shading_function_opacity(ctx, function_ref, &linear.stops);
-
-            let mut shading = ctx.pdf.function_shading(shading);
-            shading.shading_type(FunctionShadingType::Axial);
-
-            ctx.colors
-                .write(ColorSpace::D65Gray, shading.color_space(), &mut ctx.alloc);
-
-            let (sin, cos) = (angle.sin(), angle.cos());
-            let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
-                Quadrant::First => (0.0, 0.0, cos, sin),
-                Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
-                Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
-                Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
-            };
-
-            let clamp = |i: f64| if i < 1e-4 { 0.0 } else { i.clamp(0.0, 1.0) };
-            let x1 = clamp(x1);
-            let y1 = clamp(y1);
-            let x2 = clamp(x2);
-            let y2 = clamp(y2);
-
-            shading
-                .anti_alias(gradient.anti_alias())
-                .function(function_ref)
-                .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
-                .extend([true; 2]);
-
-            shading.finish();
+        // If the gradient is opaque, we don't need a soft mask.
+        if !gradient.has_opacity() {
+            unreachable!()
         }
-        Gradient::Radial(radial) => {
-            let function_ref = ctx.alloc.bump();
-            shading_function_opacity(ctx, function_ref, &radial.stops);
 
-            let mut shading = ctx.pdf.function_shading(shading);
-            shading.shading_type(FunctionShadingType::Radial);
-            ctx.colors
-                .write(ColorSpace::D65Gray, shading.color_space(), &mut ctx.alloc);
+        // Create the shading function.
+        let x_object_id = ctx.alloc.bump();
+        let shading = ctx.alloc.bump();
+        match &gradient {
+            Gradient::Linear(linear) => {
+                let function_ref = ctx.alloc.bump();
+                shading_function_opacity(ctx, function_ref, &linear.stops);
 
-            shading
-                .anti_alias(gradient.anti_alias())
-                .function(function_ref)
-                .coords([
-                    radial.focal_center.x.get() as f32,
-                    radial.focal_center.y.get() as f32,
-                    radial.focal_radius.get() as f32,
-                    radial.center.x.get() as f32,
-                    radial.center.y.get() as f32,
-                    radial.radius.get() as f32,
-                ])
-                .extend([true; 2]);
+                let mut shading = ctx.pdf.function_shading(shading);
+                shading.shading_type(FunctionShadingType::Axial);
 
-            shading.finish();
+                ctx.colors.write(
+                    ColorSpace::D65Gray,
+                    shading.color_space(),
+                    &mut ctx.alloc,
+                );
+
+                let (sin, cos) = (angle.sin(), angle.cos());
+                let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
+                    Quadrant::First => (0.0, 0.0, cos, sin),
+                    Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
+                    Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
+                    Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
+                };
+
+                let clamp = |i: f64| if i < 1e-4 { 0.0 } else { i.clamp(0.0, 1.0) };
+                let x1 = clamp(x1);
+                let y1 = clamp(y1);
+                let x2 = clamp(x2);
+                let y2 = clamp(y2);
+
+                shading
+                    .anti_alias(gradient.anti_alias())
+                    .function(function_ref)
+                    .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
+                    .extend([true; 2]);
+
+                shading.finish();
+            }
+            Gradient::Radial(radial) => {
+                let function_ref = ctx.alloc.bump();
+                shading_function_opacity(ctx, function_ref, &radial.stops);
+
+                let mut shading = ctx.pdf.function_shading(shading);
+                shading.shading_type(FunctionShadingType::Radial);
+                ctx.colors.write(
+                    ColorSpace::D65Gray,
+                    shading.color_space(),
+                    &mut ctx.alloc,
+                );
+
+                shading
+                    .anti_alias(gradient.anti_alias())
+                    .function(function_ref)
+                    .coords([
+                        radial.focal_center.x.get() as f32,
+                        radial.focal_center.y.get() as f32,
+                        radial.focal_radius.get() as f32,
+                        radial.center.x.get() as f32,
+                        radial.center.y.get() as f32,
+                        radial.radius.get() as f32,
+                    ])
+                    .extend([true; 2]);
+
+                shading.finish();
+            }
+            Gradient::Conic(conic) => {
+                let vertices = compute_vertex_stream_grayscale(conic, aspect_ratio);
+                let mut stream_shading = ctx.pdf.stream_shading(shading, &vertices);
+
+                ctx.colors.write(
+                    ColorSpace::D65Gray,
+                    stream_shading.color_space(),
+                    &mut ctx.alloc,
+                );
+
+                let range = ColorSpace::D65Gray.range();
+                stream_shading
+                    .bits_per_coordinate(16)
+                    .bits_per_component(16)
+                    .bits_per_flag(8)
+                    .shading_type(StreamShadingType::CoonsPatch)
+                    .decode([0.0, 1.0, 0.0, 1.0, range[0], range[1]])
+                    .anti_alias(gradient.anti_alias())
+                    .filter(Filter::FlateDecode);
+
+                stream_shading.finish();
+            }
         }
-        Gradient::Conic(conic) => {
-            let vertices = compute_vertex_stream_grayscale(conic, aspect_ratio);
-            let mut stream_shading = ctx.pdf.stream_shading(shading, &vertices);
 
-            ctx.colors.write(
-                ColorSpace::D65Gray,
-                stream_shading.color_space(),
-                &mut ctx.alloc,
-            );
+        // Write the content of the softmask as a transform and a shading.
+        let mut content = Content::new();
+        content.transform(transform_to_array(transform));
+        content.shading(Name(b"Sh"));
+        let content_stream = deflate(&content.finish());
 
-            let range = ColorSpace::D65Gray.range();
-            stream_shading
-                .bits_per_coordinate(16)
-                .bits_per_component(16)
-                .bits_per_flag(8)
-                .shading_type(StreamShadingType::CoonsPatch)
-                .decode([0.0, 1.0, 0.0, 1.0, range[0], range[1]])
-                .anti_alias(gradient.anti_alias())
-                .filter(Filter::FlateDecode);
+        // Allocate the XObject.
+        let mut x_object = ctx.pdf.form_xobject(x_object_id, &content_stream);
 
-            stream_shading.finish();
-        }
+        // Write the color space of the gradient.
+        let mut resources = x_object.resources();
+        let mut color_spaces = resources.color_spaces();
+        let color_space = color_spaces.insert(gradient.space().name());
+        ctx.colors
+            .write(gradient.space(), color_space.start(), &mut ctx.alloc);
+        color_spaces.finish();
+
+        // Write the shading.
+        resources.shadings().pair(Name(b"Sh"), shading);
+        resources.finish();
+
+        // And write the group of the soft mask.
+        ctx.colors.write(
+            ColorSpace::D65Gray,
+            x_object
+                .group()
+                .transparency()
+                .isolated(false)
+                .knockout(false)
+                .color_space(),
+            &mut ctx.alloc,
+        );
+
+        // Additional properties of the soft mask.
+        x_object.filter(Filter::FlateDecode);
+
+        x_object.bbox(Rect::new(
+            0.0,
+            0.0,
+            page_size.x.to_f32(),
+            page_size.y.to_f32(),
+        ));
+        x_object.finish();
+
+        // Write the soft mask to the page.
+        let gs_ref = ctx.alloc.bump();
+        let mut gs = ctx.pdf.ext_graphics(gs_ref);
+        gs.soft_mask()
+            .subtype(MaskType::Luminosity)
+            .group(x_object_id)
+            .finish();
+
+        ctx.transparency_ext_gs_refs.push(gs_ref);
     }
-
-    let mut content = Content::new();
-    content.transform(transform_to_array(transform));
-    content.shading(Name(b"Sh"));
-    let content_stream = deflate(&content.finish());
-
-    let mut x_object = ctx.pdf.form_xobject(x_object_id, &content_stream);
-
-    let mut resources = x_object.resources();
-    ctx.colors.write(gradient.space(), resources.color_spaces().insert(OKLAB).start(), &mut ctx.alloc);
-    resources.shadings().pair(Name(b"Sh"), shading);
-
-    resources.finish();
-
-    ctx.colors.write(
-        ColorSpace::D65Gray,
-        x_object
-            .group()
-            .transparency()
-            .isolated(false)
-            .knockout(false)
-            .color_space(),
-        &mut ctx.alloc,
-    );
-
-    x_object.filter(Filter::FlateDecode);
-    x_object.bbox(Rect::new(0.0, 0.0, size.x.to_pt() as f32, size.y.to_pt() as f32));
-    x_object.finish();
-
-    let gs_ref = ctx.alloc.bump();
-    let mut gs = ctx.pdf.ext_graphics(gs_ref);
-    gs.soft_mask()
-        .subtype(MaskType::Luminosity)
-        .group(x_object_id)
-        .finish();
-
-    ctx.transparency_ext_gs_refs.push(gs_ref);
-    gs_ref
 }
 
 /// Writes an expotential or stitched function that expresses the gradient's oppacity.
@@ -490,14 +554,15 @@ impl PaintEncode for Gradient {
         let id = register_gradient(ctx, self, on_text, transforms);
         let name = Name(id.as_bytes());
 
-        ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
-        ctx.content.set_fill_pattern(None, name);
-
         if self.has_opacity() {
             let id = register_softmask(ctx, self, on_text, transforms);
             let name = Name(id.as_bytes());
             ctx.content.set_parameters(name);
+            ctx.uses_opacities = true;
         }
+
+        ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
+        ctx.content.set_fill_pattern(None, name);
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
@@ -506,14 +571,15 @@ impl PaintEncode for Gradient {
         let id = register_gradient(ctx, self, false, transforms);
         let name = Name(id.as_bytes());
 
-        ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
-        ctx.content.set_stroke_pattern(None, name);
-
         if self.has_opacity() {
             let id = register_softmask(ctx, self, false, transforms);
             let name = Name(id.as_bytes());
             ctx.content.set_parameters(name);
+            ctx.uses_opacities = true;
         }
+
+        ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
+        ctx.content.set_stroke_pattern(None, name);
     }
 }
 
@@ -522,115 +588,26 @@ fn register_gradient(
     ctx: &mut PageContext,
     gradient: &Gradient,
     on_text: bool,
-    mut transforms: Transforms,
+    transforms: Transforms,
 ) -> EcoString {
-    // Edge cases for strokes.
-    if transforms.size.x.is_zero() {
-        transforms.size.x = Abs::pt(1.0);
-    }
-
-    if transforms.size.y.is_zero() {
-        transforms.size.y = Abs::pt(1.0);
-    }
-    let size = match gradient.unwrap_relative(on_text) {
-        Relative::Self_ => transforms.size,
-        Relative::Parent => transforms.container_size,
-    };
-
-    let (offset_x, offset_y) = match gradient {
-        Gradient::Conic(conic) => (
-            -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
-            -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
-        ),
-        _ => (Abs::zero(), Abs::zero()),
-    };
-
-    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
-
-    let transform = match gradient.unwrap_relative(on_text) {
-        Relative::Self_ => transforms.transform,
-        Relative::Parent => transforms.container_transform,
-    };
-
-    let scale_offset = match gradient {
-        Gradient::Conic(_) => 4.0_f64,
-        _ => 1.0,
-    };
-
-    let pdf_gradient = PdfGradient {
-        aspect_ratio: size.aspect_ratio(),
-        transform: transform
-            .pre_concat(Transform::translate(
-                offset_x * scale_offset,
-                offset_y * scale_offset,
-            ))
-            .pre_concat(Transform::scale(
-                Ratio::new(size.x.to_pt() * scale_offset),
-                Ratio::new(size.y.to_pt() * scale_offset),
-            )),
-        gradient: gradient.clone(),
-        angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
-    };
-
-    let index = ctx.parent.gradient_map.insert(pdf_gradient);
+    let index = ctx
+        .parent
+        .gradient_map
+        .insert(PdfGradient::new(transforms, gradient, on_text));
     eco_format!("Gr{}", index)
 }
 
+/// Deduplicates a gradient to a named PDF resource for transparency.
 fn register_softmask(
     ctx: &mut PageContext,
     gradient: &Gradient,
     on_text: bool,
-    mut transforms: Transforms,
+    transforms: Transforms,
 ) -> EcoString {
-    // Edge cases for strokes.
-    if transforms.size.x.is_zero() {
-        transforms.size.x = Abs::pt(1.0);
-    }
-
-    if transforms.size.y.is_zero() {
-        transforms.size.y = Abs::pt(1.0);
-    }
-    let size = match gradient.unwrap_relative(on_text) {
-        Relative::Self_ => transforms.size,
-        Relative::Parent => transforms.container_size,
-    };
-
-    let (offset_x, offset_y) = match gradient {
-        Gradient::Conic(conic) => (
-            -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
-            -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
-        ),
-        _ => (Abs::zero(), Abs::zero()),
-    };
-
-    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
-
-    let transform = match gradient.unwrap_relative(on_text) {
-        Relative::Self_ => transforms.transform,
-        Relative::Parent => transforms.container_transform,
-    };
-
-    let scale_offset = match gradient {
-        Gradient::Conic(_) => 4.0_f64,
-        _ => 1.0,
-    };
-
-    let pdf_gradient = PdfOpacityGradient {
-        size,
-        transform: transform
-            .pre_concat(Transform::translate(
-                offset_x * scale_offset,
-                offset_y * scale_offset,
-            ))
-            .pre_concat(Transform::scale(
-                Ratio::new(size.x.to_pt() * scale_offset),
-                Ratio::new(size.y.to_pt() * scale_offset),
-            )),
-        gradient: gradient.clone(),
-        angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
-    };
-
-    let index = ctx.parent.opacity_mask_map.insert(pdf_gradient);
+    let index = ctx
+        .parent
+        .opacity_mask_map
+        .insert(PdfGradient::new(transforms, gradient, on_text));
     eco_format!("Tgs{}", index)
 }
 
@@ -763,6 +740,7 @@ fn write_patch_grayscale(
     target.extend_from_slice(bytemuck::cast_slice(&colors));
 }
 
+/// Computes the control point of an arc segment.
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {
     let n = (TAU / (angle_end - angle_start)).abs();
     let f = ((angle_end - angle_start) / n).tan() * 4.0 / 3.0;
@@ -780,6 +758,7 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
     (p1, p2)
 }
 
+/// Compute the vertex stream for a conic gradient.
 #[comemo::memoize]
 fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
@@ -893,6 +872,8 @@ fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<
     Arc::new(deflate(&vertices))
 }
 
+/// Compute the vertex stream for a grayscale  conicgradient, used for
+/// transparency.
 #[comemo::memoize]
 fn compute_vertex_stream_grayscale(
     conic: &ConicGradient,

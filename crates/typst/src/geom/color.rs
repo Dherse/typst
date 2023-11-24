@@ -1140,7 +1140,7 @@ impl Color {
     /// If the color does not have an alpha channel, this returns an opaque
     /// grayscale color.
     pub fn alpha_as_luma(&self) -> Luma {
-        self.alpha().map(|a| Luma::new(a)).unwrap_or_else(|| Luma::new(1.0))
+        self.alpha().map(Luma::new).unwrap_or_else(|| Luma::new(1.0))
     }
 
     /// Sets the alpha channel of the color, if it has one.

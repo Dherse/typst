@@ -14,7 +14,6 @@ use std::hash::Hash;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
-use gradient::PdfOpacityGradient;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::doc::{Document, Lang};
@@ -119,7 +118,7 @@ struct PdfContext<'a> {
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
     /// Deduplicates gradient opacity masks used across the document.
-    opacity_mask_map: Remapper<PdfOpacityGradient>,
+    opacity_mask_map: Remapper<PdfGradient>,
 }
 
 impl<'a> PdfContext<'a> {

@@ -40,7 +40,7 @@ impl Paint {
     pub fn has_opacity(&self) -> bool {
         match self {
             Paint::Solid(solid) => solid.alpha().map_or(false, |alpha| alpha < 1.0),
-            Paint::Gradient(gradient) => gradient.has_opacity()
+            Paint::Gradient(gradient) => gradient.has_opacity(),
         }
     }
 }

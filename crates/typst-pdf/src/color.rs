@@ -422,6 +422,8 @@ pub(super) trait ColorSpaceExt {
 
     /// Converts a color to the color space.
     fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3];
+
+    fn name(self) -> Name<'static>;
 }
 
 impl ColorSpaceExt for ColorSpace {
@@ -438,6 +440,18 @@ impl ColorSpaceExt for ColorSpace {
             U::quantize(y, [range[2], range[3]]),
             U::quantize(z, [range[4], range[5]]),
         ]
+    }
+
+    fn name(self) -> Name<'static> {
+        match self {
+            ColorSpace::Oklab | ColorSpace::Oklch => OKLAB,
+            ColorSpace::Srgb => SRGB,
+            ColorSpace::D65Gray => D65_GRAY,
+            ColorSpace::LinearRgb => LINEAR_SRGB,
+            ColorSpace::Hsl => HSL,
+            ColorSpace::Hsv => HSV,
+            ColorSpace::Cmyk => Name(b"DeviceCMYK"),
+        }
     }
 }
 
