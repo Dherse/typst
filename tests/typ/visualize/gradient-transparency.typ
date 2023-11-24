@@ -7,6 +7,7 @@
 #let grad(..args) = gradient.linear(
   transparent,
   red,
+  transparent,
   space: rgb,
   ..args
 )
