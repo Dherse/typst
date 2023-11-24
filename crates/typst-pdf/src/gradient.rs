@@ -35,6 +35,7 @@ pub struct PdfGradient {
     pub gradient: Gradient,
     /// The corrected angle of the gradient.
     pub angle: Angle,
+    pub parent_size: Size,
 }
 
 impl PdfGradient {
@@ -76,6 +77,7 @@ impl PdfGradient {
         Self {
             size,
             page_size: transforms.page_size,
+            parent_size: transforms.container_size,
             aspect_ratio: size.aspect_ratio(),
             raw_transform: transform,
             transform: transform
@@ -315,6 +317,9 @@ pub(crate) fn write_gradients_soft_masks(ctx: &mut PdfContext) {
         angle,
         page_size,
         transform,
+        raw_transform,
+        size,
+        parent_size,
         ..
     } in ctx.opacity_mask_map.items().cloned().collect::<Vec<_>>()
     {
@@ -415,7 +420,10 @@ pub(crate) fn write_gradients_soft_masks(ctx: &mut PdfContext) {
 
         // Write the content of the softmask as a transform and a shading.
         let mut content = Content::new();
-        content.transform(transform_to_array(transform));
+        content.transform(transform_to_array(Transform::scale(
+            Ratio::new(size.x.to_pt()),
+            Ratio::new(size.y.to_pt()),
+        )));
         content.shading(Name(b"Sh"));
         let content_stream = deflate(&content.finish());
 
@@ -447,13 +455,18 @@ pub(crate) fn write_gradients_soft_masks(ctx: &mut PdfContext) {
         );
 
         // Additional properties of the soft mask.
-        x_object.filter(Filter::FlateDecode);
+        let ts = raw_transform;
 
+        x_object.filter(Filter::FlateDecode);
+        x_object.matrix(transform_to_array(ts));
+
+        let zero = Point::zero().transform(ts.invert().unwrap());
+        let size = page_size.to_point().transform(ts.invert().unwrap());
         x_object.bbox(Rect::new(
-            0.0,
-            0.0,
-            page_size.x.to_f32(),
-            page_size.y.to_f32(),
+            zero.x.to_f32(),
+            zero.y.to_f32(),
+            size.x.to_f32(),
+            size.y.to_f32(),
         ));
         x_object.finish();
 

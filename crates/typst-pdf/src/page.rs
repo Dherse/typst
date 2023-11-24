@@ -632,7 +632,10 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
         return;
     }
 
+    // We must first set the opacities before the fill and stroke, because
+    // otherwise the opacities will be ignored.
     ctx.set_opacities(stroke, shape.fill.as_ref());
+    
     if let Some(fill) = &shape.fill {
         ctx.set_fill(fill, false, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }

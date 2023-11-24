@@ -4,7 +4,7 @@
 #let transparent = rgb(255, 255, 255, 0)
 #rect(fill: rgb(50%, 50%, 0%, 100), height: 100%, width: 100%)[
   #rect(
-    fill: gradient.linear(transparent, transparent, rgb(50%, 0%, 0%), transparent, transparent),
+    fill: gradient.conic(transparent, transparent, rgb(50%, 0%, 0%), transparent, transparent),
     height: 100%,
     width: 100%
   )
