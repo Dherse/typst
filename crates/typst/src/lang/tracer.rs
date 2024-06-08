@@ -73,6 +73,10 @@ impl Tracer {
         }
     }
 
+    pub fn is_inspected(&self, span: Span) -> bool {
+        self.inspected == Some(span)
+    }
+
     /// Trace a value for the span.
     pub fn value(&mut self, value: Value, styles: Option<Styles>) {
         if self.values.len() < Self::MAX_VALUES {

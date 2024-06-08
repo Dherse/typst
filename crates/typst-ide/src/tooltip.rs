@@ -2,8 +2,8 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
-use typst::lang::{CapturesVisitor, Tracer};
+use typst::foundations::{repr, CastInfo, Repr, Value};
+use typst::lang::Tracer;
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
@@ -34,7 +34,7 @@ pub fn tooltip(
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| document.and_then(|doc| label_tooltip(doc, &leaf)))
         .or_else(|| expr_tooltip(world, &leaf))
-        .or_else(|| closure_tooltip(&leaf))
+        .or_else(|| closure_tooltip(world, &leaf))
 }
 
 /// A hover tooltip.
@@ -107,7 +107,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered closure.
-fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
+fn closure_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     // Only show this tooltip when hovering over the equals sign or arrow of
     // the closure. Showing it across the whole subtree is too noisy.
     if !matches!(leaf.kind(), SyntaxKind::Eq | SyntaxKind::Arrow) {
@@ -120,13 +120,18 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
         return None;
     }
 
-    // Analyze the closure's captures.
-    let mut visitor = CapturesVisitor::new(None, Capturer::Function);
-    visitor.visit(parent);
-
-    let captures = visitor.finish();
+    let (value, _) = analyze_expr(world, parent).into_iter().next()?;
+    let Value::Func(f) = value else {
+        debug_assert!(
+            false,
+            "analyze_expr should return a closure first since we checked the span."
+        );
+        return None;
+    };
+    let closure = f.as_closure()?;
+    let captures = closure.inner.compiled.captures.as_ref()?.into_iter();
     let mut names: Vec<_> =
-        captures.iter().map(|(name, _)| eco_format!("`{name}`")).collect();
+        captures.map(|c| eco_format!("`{}`", &c.name.resolve())).collect();
     if names.is_empty() {
         return None;
     }
@@ -253,7 +258,7 @@ fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 
 #[cfg(test)]
 mod tests {
-    use typst::eval::Tracer;
+    use typst::lang::Tracer;
     use typst::syntax::Side;
 
     use super::{tooltip, Tooltip};

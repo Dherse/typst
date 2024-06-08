@@ -148,7 +148,7 @@ impl SimpleRun for ShowSet {
 }
 
 impl SimpleRun for Contextual {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Load the context.
         let closure = vm.read(self.closure);
 
@@ -158,8 +158,12 @@ impl SimpleRun for Contextual {
         };
 
         // Write the value to the output.
-        vm.write_one(self.out, ContextElem::new(closure.clone()).pack().spanned(span))
-            .at(span)?;
+        vm.write_one(
+            engine,
+            self.out,
+            ContextElem::new(closure.clone()).pack().spanned(span),
+            span,
+        )?;
 
         Ok(())
     }

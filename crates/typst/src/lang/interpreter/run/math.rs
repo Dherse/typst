@@ -10,7 +10,7 @@ use crate::math::{AttachElem, EquationElem, FracElem, LrElem, RootElem};
 use super::SimpleRun;
 
 impl SimpleRun for Delimited {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the left delimiter, body, and right delimiter.
         let left: Content = vm.read(self.left).clone().display();
         let body: Content = vm.read(self.body).clone().display();
@@ -21,14 +21,14 @@ impl SimpleRun for Delimited {
             LrElem::new(SequenceElem::new(vec![left, body, right]).pack().spanned(span));
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Attach {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the base, top, and bottom.
         let base = vm.read(self.base);
         let top = vm.read(self.top);
@@ -46,14 +46,14 @@ impl SimpleRun for Attach {
         }
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Frac {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the numerator and denominator.
         let numerator = vm.read(self.numerator);
         let denominator = vm.read(self.denominator);
@@ -63,14 +63,14 @@ impl SimpleRun for Frac {
             FracElem::new(numerator.clone().display(), denominator.clone().display());
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Root {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the degree and radicand.
         let degree = vm.read(self.degree);
         let radicand = vm.read(self.radicand);
@@ -83,14 +83,14 @@ impl SimpleRun for Root {
         }
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Equation {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
 
@@ -99,7 +99,7 @@ impl SimpleRun for Equation {
             EquationElem::new(value.clone().cast().at(span)?).with_block(self.block);
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }

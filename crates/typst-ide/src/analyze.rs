@@ -1,11 +1,12 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::engine::{Engine, Route};
-use typst::foundations::{Context, Label, Scopes, Styles, Value};
+use typst::foundations::{Label, Styles, Value};
 use typst::introspection::{Introspector, Locator};
-use typst::lang::{Tracer, Vm};
+use typst::lang::compiler::ImportedModule;
+use typst::lang::Tracer;
 use typst::model::{BibliographyElem, Document};
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::syntax::{ast, LinkedNode, SyntaxKind};
 use typst::World;
 
 /// Try to determine a set of possible values for an expression.
@@ -61,7 +62,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
     let mut locator = Locator::default();
     let introspector = Introspector::default();
     let mut tracer = Tracer::new();
-    let engine = Engine {
+    let mut engine = Engine {
         world: world.track(),
         route: Route::default(),
         introspector: introspector.track(),
@@ -69,16 +70,10 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         tracer: tracer.track_mut(),
     };
 
-    let context = Context::none();
-    let mut vm = Vm::new(
-        engine,
-        context.track(),
-        Scopes::new(Some(world.library())),
-        Span::detached(),
-    );
-    typst::eval::import(&mut vm, source, source_span, true)
-        .ok()
-        .map(Value::Module)
+    match typst::lang::compiler::import_value(&mut engine, &source, source_span, true) {
+        Ok(ImportedModule::Static(m)) => Some(Value::Module(m)),
+        _ => None,
+    }
 }
 
 /// Find all labels and details for them.

@@ -1,6 +1,6 @@
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Arg, Args, Array, Dict, Value};
 use crate::lang::interpreter::Vm;
@@ -11,12 +11,12 @@ use crate::lang::opcodes::{
 use super::SimpleRun;
 
 impl SimpleRun for AllocArray {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Create a new array.
         let array = Value::Array(Array::with_capacity(self.capacity as usize));
 
         // Write the array to the output.
-        vm.write_one(self.out, array).at(span)?;
+        vm.write_one(engine, self.out, array, span)?;
 
         Ok(())
     }
@@ -39,12 +39,12 @@ impl SimpleRun for Push {
 }
 
 impl SimpleRun for AllocDict {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Create a new dictionary.
         let dict = Value::Dict(Dict::with_capacity(self.capacity as usize));
 
         // Write the dictionary to the output.
-        vm.write_one(self.out, dict).at(span)?;
+        vm.write_one(engine, self.out, dict, span)?;
 
         Ok(())
     }
@@ -72,12 +72,12 @@ impl SimpleRun for Insert {
 }
 
 impl SimpleRun for AllocArgs {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Create a new argument set.
         let args = Value::Args(Args::with_capacity(span, self.capacity as usize));
 
         // Write the argument set to the output.
-        vm.write_one(self.out, args).at(span)?;
+        vm.write_one(engine, self.out, args, span)?;
 
         Ok(())
     }

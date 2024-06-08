@@ -330,6 +330,13 @@ impl Func {
         }
         self
     }
+
+    pub fn as_closure(&self) -> Option<Arc<LazyHash<Closure>>> {
+        match &self.repr {
+            Repr::Closure(c) => Some(c.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl From<Closure> for Func {

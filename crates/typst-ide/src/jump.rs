@@ -170,7 +170,7 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
 mod tests {
     use std::num::NonZeroUsize;
 
-    use typst::eval::Tracer;
+    use typst::lang::Tracer;
     use typst::layout::{Abs, Point, Position};
 
     use super::{jump_from_click, jump_from_cursor, Jump};

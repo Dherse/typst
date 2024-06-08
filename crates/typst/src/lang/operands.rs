@@ -245,6 +245,10 @@ impl From<Register> for Writable {
     }
 }
 
+/// For each branch, defines a `#[repr(transparent)]` structure wrapping a u16.
+///
+/// The structure implements `new` and `as_raw` and comes with a Debug implementation that precedes the value
+/// by the letter of your choice.
 macro_rules! id {
     (
         $(#[$sattr:meta])*

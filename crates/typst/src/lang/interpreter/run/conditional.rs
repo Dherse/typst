@@ -1,6 +1,6 @@
 use typst_syntax::Span;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::Value;
 use crate::lang::interpreter::{ControlFlow, Vm};
@@ -48,11 +48,11 @@ impl Run for Enter {
 
         if forced_return {
             let reg = Register(0);
-            vm.write_one(reg, output).at(span)?;
+            vm.write_one(engine, reg, output, span)?;
             vm.output = Some(Readable::reg(reg));
         } else {
             // Write the output to the output register.
-            vm.write_one(self.out, output).at(span)?;
+            vm.write_one(engine, self.out, output, span)?;
         }
 
         vm.bump(self.len as usize);
@@ -132,7 +132,7 @@ impl SimpleRun for BeginIter {
 }
 
 impl SimpleRun for Select {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the condition.
         let condition = vm.read(self.condition);
 
@@ -146,7 +146,7 @@ impl SimpleRun for Select {
         let value = if *condition { vm.read(self.true_) } else { vm.read(self.false_) };
 
         // Write the value to the output.
-        vm.write_one(self.out, value.clone()).at(span)?;
+        vm.write_one(engine, self.out, value.clone(), span)?;
 
         Ok(())
     }

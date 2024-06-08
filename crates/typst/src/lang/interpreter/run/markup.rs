@@ -13,7 +13,7 @@ use crate::model::{
 use super::SimpleRun;
 
 impl SimpleRun for Ref {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the supplement.
         let supplement = vm.read(self.supplement);
 
@@ -32,14 +32,14 @@ impl SimpleRun for Ref {
             .spanned(span);
 
         // Write the reference to the output.
-        vm.write_one(self.out, reference).at(span)?;
+        vm.write_one(engine, self.out, reference, span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Strong {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
 
@@ -47,14 +47,14 @@ impl SimpleRun for Strong {
         let value = StrongElem::new(value.clone().cast().at(span)?);
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Emph {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
 
@@ -62,14 +62,14 @@ impl SimpleRun for Emph {
         let value = EmphElem::new(value.clone().cast().at(span)?);
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Heading {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value and level.
         let value = vm.read(self.value);
         let level = self.level;
@@ -81,14 +81,14 @@ impl SimpleRun for Heading {
         value.push_level(Smart::Custom(level.into()));
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for ListItem {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
 
@@ -96,14 +96,14 @@ impl SimpleRun for ListItem {
         let value = ListItemElem::new(value.clone().cast().at(span)?);
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for EnumItem {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value and number.
         let value = vm.read(self.value);
         let number = self.number.map(|number| number.get() as usize - 1);
@@ -112,14 +112,14 @@ impl SimpleRun for EnumItem {
         let value = EnumItemElem::new(value.clone().cast().at(span)?).with_number(number);
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for TermItem {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Obtain the value and description.
         let value = vm.read(self.term);
         let description = vm.read(self.description);
@@ -131,7 +131,7 @@ impl SimpleRun for TermItem {
         );
 
         // Write the value to the output.
-        vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
+        vm.write_one(engine, self.out, value.pack().spanned(span), span)?;
 
         Ok(())
     }

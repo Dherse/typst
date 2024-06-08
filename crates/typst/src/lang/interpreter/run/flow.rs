@@ -47,11 +47,11 @@ impl SimpleRun for InstantiateModule {
             })?;
 
             // Apply the rule.
-            vm.write_one(value.location, field).at(value.span)?;
+            vm.write_one(engine, value.location, field, span)?;
         }
 
         // Write the module to the output.
-        vm.write_one(self.out, Value::Module(loaded)).at(span)?;
+        vm.write_one(engine, self.out, Value::Module(loaded), span)?;
 
         Ok(())
     }
@@ -69,14 +69,14 @@ impl SimpleRun for Include {
         };
 
         // Write the module's content to the output.
-        vm.write_one(self.out, loaded.content()).at(span)?;
+        vm.write_one(engine, self.out, loaded.content(), span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Instantiate {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Get the closure.
         let closure = vm.read(self.closure);
         let closure_span = closure.span();
@@ -87,8 +87,12 @@ impl SimpleRun for Instantiate {
         let closure = vm.instantiate(closure)?;
 
         // Write the closure to the output.
-        vm.write_one(self.out, Func::from(closure.into_owned()).spanned(closure_span))
-            .at(span)?;
+        vm.write_one(
+            engine,
+            self.out,
+            Func::from(closure.into_owned()).spanned(closure_span),
+            span,
+        )?;
 
         Ok(())
     }
@@ -143,7 +147,7 @@ impl SimpleRun for Call {
                     .spanned(span);
 
                 // Write the value to the output.
-                vm.write_one(self.out, value).at(span)?;
+                vm.write_one(engine, self.out, value, span)?;
 
                 return Ok(());
             }
@@ -177,7 +181,7 @@ impl SimpleRun for Call {
                     let out = plugin.call(method, bytes).at(span)?.into_value();
 
                     // Write the value to the output.
-                    vm.write_one(self.out, out).at(span)?;
+                    vm.write_one(engine, self.out, out, span)?;
 
                     return Ok(());
                 } else {
@@ -201,7 +205,7 @@ impl SimpleRun for Call {
                     }
 
                     // Write the value to the output.
-                    vm.write_one(self.out, accent.pack().spanned(span)).at(span)?;
+                    vm.write_one(engine, self.out, accent.pack().spanned(span), span)?;
 
                     return Ok(());
                 }
@@ -225,7 +229,7 @@ impl SimpleRun for Call {
                     .spanned(span);
 
             // Write the value to the output.
-            vm.write_one(self.out, out).at(span)?;
+            vm.write_one(engine, self.out, out, span)?;
 
             return Ok(());
         }
@@ -238,20 +242,20 @@ impl SimpleRun for Call {
             .spanned(span);
 
         // Write the value to the output.
-        vm.write_one(self.out, value).at(span)?;
+        vm.write_one(engine, self.out, value, span)?;
 
         Ok(())
     }
 }
 
 impl SimpleRun for Field {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.access).read(span, vm)?;
 
         // Write the value to the output.
         // TODO: improve efficiency by removing cloning!
-        vm.write_one(self.out, value.into_owned()).at(span)?;
+        vm.write_one(engine, self.out, value.into_owned(), span)?;
 
         Ok(())
     }
@@ -290,11 +294,11 @@ impl Run for While {
 
         if forced_return {
             let reg = Register(0);
-            vm.write_one(reg, output).at(span)?;
+            vm.write_one(engine, reg, output, span)?;
             vm.output = Some(Readable::reg(reg));
         } else {
             // Write the output to the output register.
-            vm.write_one(self.out, output).at(span)?;
+            vm.write_one(engine, self.out, output, span)?;
         }
 
         vm.bump(self.len as usize);
@@ -371,11 +375,11 @@ impl Run for Iter {
 
         if forced_return {
             let reg = Register(0);
-            vm.write_one(reg, output).at(span)?;
+            vm.write_one(engine, reg, output, span)?;
             vm.output = Some(Readable::reg(reg));
         } else {
             // Write the output to the output register.
-            vm.write_one(self.out, output).at(span)?;
+            vm.write_one(engine, self.out, output, span)?;
         }
 
         vm.bump(self.len as usize);
@@ -391,7 +395,7 @@ impl Run for Next {
         _: &[Span],
         span: Span,
         vm: &mut Vm,
-        _: &mut Engine,
+        engine: &mut Engine,
         iterator: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         let Some(iter) = iterator else {
@@ -405,7 +409,7 @@ impl Run for Next {
         };
 
         // Write the value to the output.
-        vm.write_one(self.out, value).at(span)?;
+        vm.write_one(engine, self.out, value, span)?;
 
         Ok(())
     }

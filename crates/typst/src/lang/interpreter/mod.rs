@@ -12,7 +12,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 use typst_syntax::Span;
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, Context, IntoValue, Recipe, SequenceElem, Styles, Value,
@@ -101,10 +101,19 @@ impl<'a> Vm<'a, '_> {
     /// Write a value to the VM.
     pub fn write_one(
         &mut self,
+        // for tracing
+        engine: &mut Engine,
         writable: impl Write,
         value: impl IntoValue,
-    ) -> StrResult<()> {
-        writable.write_one(self, value)
+        span: Span,
+    ) -> SourceResult<()> {
+        let value = value.into_value();
+        if engine.tracer.is_inspected(span) {
+            let s = self.context.styles().map(|s| s.to_map()).ok();
+            engine.tracer.value(value.clone(), s);
+        }
+
+        writable.write_one(self, value).at(span)
     }
 
     /// Write a borrowed value to the VM.

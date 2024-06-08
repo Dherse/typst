@@ -19,7 +19,7 @@ use typst_macros::Cast;
 use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span};
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{Args, Context, Func, Module, NativeElement, Scope, Value};
 use crate::introspection::{Introspector, Locator};
@@ -391,8 +391,7 @@ where
 
     // Write the self reference to the registers.
     if let Some(self_storage) = compiled.self_storage {
-        vm.write_one(self_storage, Value::Func(func.clone()))
-            .at(compiled.span)?;
+        vm.write_one(engine, self_storage, Value::Func(func.clone()), compiled.span)?;
     }
 
     // Write all of the arguments to the registers.
@@ -401,14 +400,18 @@ where
         match arg {
             Param::Pos(name) => {
                 if let Some(target) = target {
-                    vm.write_one(*target, args.expect::<Value>(name)?)
-                        .at(compiled.span)?;
+                    vm.write_one(
+                        engine,
+                        *target,
+                        args.expect::<Value>(name)?,
+                        compiled.span,
+                    )?;
                 }
             }
             Param::Named { name, default } => {
                 if let Some(target) = target {
                     if let Some(value) = args.named::<Value>(name)? {
-                        vm.write_one(*target, value).at(compiled.span)?;
+                        vm.write_one(engine, *target, value, compiled.span)?;
                     } else if let Some(default) = default {
                         vm.write_borrowed(*target, default);
                     } else {
@@ -427,7 +430,7 @@ where
                         arguments.extend(args.consume(sink_size)?);
                     }
 
-                    vm.write_one(*target, arguments).at(compiled.span)?;
+                    vm.write_one(engine, *target, arguments, compiled.span)?;
                 } else if let Some(sink_size) = sink_size {
                     args.consume(sink_size)?;
                 }
