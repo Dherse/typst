@@ -63,8 +63,7 @@ impl World for FuzzWorld {
 
 fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(text);
-    let mut tracer = Tracer::new();
-    if let Ok(document) = typst::compile(&world, &mut tracer) {
+    if let Ok(document) = typst::compile(&world).output {
         if let Some(page) = document.pages.first() {
             std::hint::black_box(typst_render::render(&page.frame, 1.0, Color::WHITE));
         }

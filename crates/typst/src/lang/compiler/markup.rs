@@ -191,7 +191,7 @@ impl Compile for ast::Escape<'_> {
         compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
-        let symbol = Value::Symbol(Symbol::single(self.get()));
+        let symbol = Value::Symbol(Symbol::single(self.get().into()));
 
         Ok(compiler.const_(symbol).into())
     }
@@ -214,7 +214,7 @@ impl Compile for ast::Shorthand<'_> {
         compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
-        let symbol = Value::Symbol(Symbol::single(self.get()));
+        let symbol = Value::Symbol(Symbol::single(self.get().into()));
 
         Ok(compiler.const_(symbol).into())
     }
@@ -256,7 +256,7 @@ impl Compile for ast::Strong<'_> {
         let body = self.body();
         if body.exprs().next().is_none() {
             engine
-                .tracer
+                .sink
                 .warn(warning!(
                     self.span(), "no text within stars";
                     hint: "using multiple consecutive stars (e.g. **) has no additional effect",
@@ -280,7 +280,7 @@ impl Compile for ast::Emph<'_> {
         let body = self.body();
         if body.exprs().next().is_none() {
             engine
-                .tracer
+                .sink
                 .warn(warning!(
                     self.span(), "no text within underscores";
                     hint: "using multiple consecutive underscores (e.g. __) has no additional effect"

@@ -279,7 +279,7 @@ impl SimpleRun for Observe {
 
         // Observe the value.
         engine
-            .tracer
+            .sink
             .value(value.clone(), vm.context.styles().ok().map(|s| s.to_map()));
 
         Ok(())

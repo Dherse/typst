@@ -411,8 +411,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let source = Source::new(id, compile);
     let world = DocWorld(source);
 
-    let mut tracer = Tracer::new();
-    let mut document = match typst::compile(&world, &mut tracer) {
+    let mut document = match typst::compile(&world).output {
         Ok(doc) => doc,
         Err(err) => {
             let msg = &err[0].message;

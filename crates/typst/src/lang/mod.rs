@@ -5,7 +5,6 @@ pub mod interpreter;
 pub mod opcodes;
 pub mod operands;
 pub mod ops;
-mod tracer;
 
 use std::borrow::Cow;
 
@@ -20,14 +19,13 @@ use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span};
 use typst_utils::LazyHash;
 
 use crate::diag::{bail, At, SourceResult};
-use crate::engine::{Engine, Route};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{Args, Context, Func, Module, NativeElement, Scope, Value};
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::Introspector;
 use crate::math::EquationElem;
 use crate::{Library, World};
 
 use self::closure::Closure;
-pub use self::tracer::Tracer;
 
 /// In which mode to evaluate a string.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
@@ -43,13 +41,14 @@ pub enum EvalMode {
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize(
     // We only memoize if the source is not being traced.
-    enabled = tracer.inspected(source.id()).is_none(),
+    enabled = traced.get(source.id()).is_none(),
 )]
 #[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
-    tracer: TrackedMut<Tracer>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
     source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
@@ -59,15 +58,14 @@ pub fn eval(
     }
 
     // Prepare the engine.
-    let mut locator = Locator::new();
     let library = world.library();
     let introspector = Introspector::default();
     let mut engine = Engine {
         world,
         route: Route::extend(route).with_id(id),
         introspector: introspector.track(),
-        locator: &mut locator,
-        tracer,
+        sink,
+        traced,
     };
 
     // Compile the module
@@ -104,16 +102,16 @@ pub fn eval_string(
     }
 
     // Prepare the engine.
-    let mut tracer = Tracer::new();
-    let mut locator = Locator::new();
+    let mut sink = Sink::new();
+    let traced = Traced::default();
     let introspector = Introspector::default();
     let library = world.library();
     let mut engine = Engine {
         world,
         introspector: introspector.track(),
         route: Route::default(),
-        locator: &mut locator,
-        tracer: tracer.track_mut(),
+        sink: sink.track_mut(),
+        traced: traced.track(),
     };
 
     let mut compiler = Compiler::new_module(library);
@@ -165,7 +163,7 @@ pub fn eval_string(
 #[comemo::memoize(
     // Memoize only if the closure is large and if it is not being traced.
     enabled = closure.inner.compiled.instructions.len() > 250 &&
-        closure.inner.compiled.span.id().and_then(|id| tracer.inspected(id)).is_none(),
+        closure.inner.compiled.span.id().and_then(|id| traced.get(id)).is_none(),
 )]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
@@ -173,19 +171,18 @@ pub(crate) fn call_closure(
     closure: &LazyHash<Closure>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
     route: Tracked<Route>,
-    locator: Tracked<Locator>,
-    tracer: TrackedMut<Tracer>,
     context: Tracked<Context>,
     args: Args,
 ) -> SourceResult<Value> {
-    let mut locator = Locator::chained(locator);
     let mut engine = Engine {
         world,
         introspector,
+        traced,
+        sink,
         route: Route::extend(route),
-        locator: &mut locator,
-        tracer,
     };
 
     run_closure(func, closure, &mut engine, context, args)

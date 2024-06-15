@@ -138,6 +138,15 @@ pub use {
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 
+/// An output alongside warnings generated while producing it.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Warned<T> {
+    /// The produced output.
+    pub output: T,
+    /// Warnings generated while producing the output.
+    pub warnings: EcoVec<SourceDiagnostic>,
+}
+
 /// An error or warning in a source file.
 ///
 /// The contained spans will only be detached if any of the input source files
@@ -371,13 +380,12 @@ where
     }
 }
 
-impl<T> At<T> for Result<T, HintedString> {
+impl<T> At<T> for HintedStrResult<T> {
     fn at_with(self, span: impl FnOnce() -> Span) -> SourceResult<T> {
         self.map_err(|err| {
             let mut components = err.0.into_iter();
             let message = components.next().unwrap();
             let diag = SourceDiagnostic::error(span(), message).with_hints(components);
-
             eco_vec![diag]
         })
     }

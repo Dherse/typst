@@ -102,7 +102,7 @@ impl Compile for ast::ModuleImport<'_> {
             if let ast::Expr::Ident(ident) = self.source() {
                 if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
-                    engine.tracer.warn(warning!(
+                    engine.sink.warn(warning!(
                         new_name.span(),
                         "unnecessary import rename to same name",
                     ));
@@ -377,7 +377,7 @@ impl Import for DynamicModule {
                                 .and_modify(|_| {
                                     // If it already exists, warn the user.
                                     engine
-                                        .tracer
+                                        .sink
                                         .warn(warning!(
                                             name.span(), "importing {} multiple times", name.as_str();
                                             hint: "remove the duplicate import statement",
@@ -396,7 +396,7 @@ impl Import for DynamicModule {
                             let new_name = renamed.new_name().as_str();
                             let old_name = renamed.original_name().as_str();
                             if new_name == old_name {
-                                engine.tracer.warn(warning!(
+                                engine.sink.warn(warning!(
                                     renamed.span(),
                                     "unnecessary import rename to same name",
                                 ));
@@ -406,7 +406,7 @@ impl Import for DynamicModule {
                                 .and_modify(|_| {
                                     // If it already exists, warn the user.
                                     engine
-                                        .tracer
+                                        .sink
                                         .warn(warning!(
                                             renamed.span(), "importing {} multiple times", renamed.original_name().as_str();
                                             hint: "remove the duplicate import statement",
@@ -452,7 +452,7 @@ impl Import for Module {
                         ast::ImportItem::Simple(path) => {
                             let name = path.name();
                             if names.contains(name.as_str()) {
-                                engine.tracer.warn(warning!(
+                                engine.sink.warn(warning!(
                                     name.span(),
                                     "importing {} multiple times",
                                     name.as_str();
@@ -499,7 +499,7 @@ impl Import for Module {
                         ast::ImportItem::Renamed(renamed) => {
                             let original = renamed.original_name();
                             if original.as_str() == renamed.new_name().as_str() {
-                                engine.tracer.warn(warning!(
+                                engine.sink.warn(warning!(
                                     renamed.span(),
                                     "unnecessary import rename to same name",
                                 ));
@@ -572,7 +572,8 @@ fn import_package(
     Ok(eval(
         engine.world,
         engine.route.track(),
-        TrackedMut::reborrow_mut(&mut engine.tracer),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
         &source,
     )
     .trace(engine.world, point, span)?
@@ -596,7 +597,8 @@ pub fn import_file(engine: &mut Engine, path: &str, span: Span) -> SourceResult<
     eval(
         world,
         engine.route.track(),
-        TrackedMut::reborrow_mut(&mut engine.tracer),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
         &source,
     )
     .trace(world, point, span)

@@ -95,7 +95,7 @@ impl Compile for ast::Expr<'_> {
     ) -> SourceResult<()> {
         // Check for observed nodes.
         let span = self.span();
-        if span.id().and_then(|id| engine.tracer.inspected(id)) == Some(span) {
+        if span.id().and_then(|id| engine.traced.get(id)) == Some(span) {
             let value = self.compile_to_readable(compiler, engine)?;
             compiler.copy(self.span(), value, output);
             return Ok(());
@@ -319,7 +319,7 @@ impl Compile for ast::Expr<'_> {
 
         // Check for observed nodes.
         let span = self.span();
-        if span.id().and_then(|id| engine.tracer.inspected(id)) == Some(span) {
+        if span.id().and_then(|id| engine.traced.get(id)) == Some(span) {
             compiler.observe(self.span(), out.clone());
         }
 
