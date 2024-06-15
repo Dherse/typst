@@ -271,7 +271,7 @@ impl ModuleLoad for ast::FieldAccess<'_> {
         let access = self.access(compiler, engine, false)?;
 
         // If we can resolve it as a constant, we can try and import it.
-        let Some(resolved) = access.resolve(compiler)? else {
+        let Some(resolved) = access.resolve(compiler).at(self.span())? else {
             // Otherwise we default to the dynamic case.
             let id = compiler.access(access);
 
@@ -294,6 +294,9 @@ pub fn import_value(
 ) -> SourceResult<ImportedModule> {
     match value {
         Value::Module(module) => Ok(ImportedModule::Static(module.clone())),
+        Value::Type(ty) => {
+            Ok(ImportedModule::Static(Module::new(ty.long_name(), ty.scope().clone())))
+        }
         Value::Str(path) => import(engine, path.as_str(), span),
         Value::Func(func) => {
             let Some(scope) = func.scope() else {
@@ -468,8 +471,8 @@ impl Import for Module {
                                 );
                             };
 
-                            let Some(value) =
-                                path.iter().try_fold(initial.clone(), |value, path| {
+                            let Some(value) = iter
+                                .try_fold(initial.clone(), |value, path| {
                                     value.field(path.as_str()).ok()
                                 })
                             else {
@@ -495,31 +498,41 @@ impl Import for Module {
                         }
                         ast::ImportItem::Renamed(renamed) => {
                             let original = renamed.original_name();
-                            if names.contains(original.as_str()) {
-                                engine.tracer.warn(warning!(
-                                    renamed.span(),
-                                    "importing {} multiple times",
-                                    original.as_str();
-                                    hint: "remove the duplicate import statement",
-                                ));
-                            }
-
-                            if renamed.original_name().as_str()
-                                == renamed.new_name().as_str()
-                            {
+                            if original.as_str() == renamed.new_name().as_str() {
                                 engine.tracer.warn(warning!(
                                     renamed.span(),
                                     "unnecessary import rename to same name",
                                 ));
                             }
 
-                            let Some(value) = self.scope().get(original.get()) else {
+                            let path = renamed.path();
+                            let mut iter = path.iter();
+                            let first = iter.next().expect("path is empty");
+                            let Some(initial) = self.scope().get(first.as_str()) else {
                                 bail!(
-                                    original.span(),
+                                    first.span(),
                                     "cannot find `{}` in module `{}`",
-                                    original.get(),
-                                    self.name(),
-                                )
+                                    first.get(),
+                                    self.name().as_str()
+                                );
+                            };
+
+                            let Some(value) = iter
+                                .try_fold(initial.clone(), |value, path| {
+                                    value.field(path.as_str()).ok()
+                                })
+                            else {
+                                let path_as_str: String = path
+                                    .iter()
+                                    .map(|path| path.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(".");
+                                bail!(
+                                    path.span(),
+                                    "cannot find `{}` in module `{}`",
+                                    path_as_str,
+                                    self.name().as_str()
+                                );
                             };
 
                             compiler.declare_default(

@@ -4,7 +4,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 
 use super::{
-    Access, Compile, Compiler, PatternCompile, PatternItem, PatternKind, ReadableGuard,
+    Compile, Compiler, PatternCompile, PatternItem, PatternKind, ReadableGuard,
     WritableGuard,
 };
 
@@ -56,12 +56,15 @@ impl Compile for ast::DestructAssignment<'_> {
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         // We compile the pattern and add it to the local scope.
-        let pattern = self.pattern().compile_pattern(compiler, engine, false)?;
+        let pattern = self
+            .pattern()
+            .compile_pattern(compiler, engine, false)?
+            .with_declare(true);
 
         // We destructure the initializer using the pattern.
         // Simple patterns can be directly stored.
         if let PatternKind::Single(PatternItem::Simple(span, access, _)) = &pattern.kind {
-            let Access::Register(guard) = compiler.get_access(access).unwrap() else {
+            let Some(guard) = compiler.get_access(access).unwrap().as_simple() else {
                 bail!(*span, "cannot destructure into a non-writable access");
             };
 
@@ -99,7 +102,7 @@ fn compile_normal(
         };
 
         // We compile the pattern.
-        let pattern = pattern.compile_pattern(compiler, engine, true)?;
+        let pattern = pattern.compile_pattern(compiler, engine, true)?.with_declare(true);
         let pattern_id = compiler.pattern(pattern);
 
         // We destructure the initializer using the pattern.

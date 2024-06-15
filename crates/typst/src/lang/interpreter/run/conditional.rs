@@ -9,7 +9,7 @@ use crate::lang::opcodes::{
 };
 use crate::lang::operands::{Readable, Register};
 
-use super::{Run, SimpleRun};
+use super::{Iterable, Run, SimpleRun};
 
 impl Run for Enter {
     fn run(
@@ -19,7 +19,7 @@ impl Run for Enter {
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        _: Option<&mut dyn Iterator<Item = Value>>,
+        _: Option<&mut Iterable>,
     ) -> SourceResult<()> {
         let instructions = &instructions[..self.len as usize];
         let spans = &spans[..self.len as usize];
@@ -123,7 +123,7 @@ impl SimpleRun for JumpIfNot {
 
 impl SimpleRun for BeginIter {
     fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
-        if vm.iter() > 100_000 {
+        if vm.iter() > 100_000_000 {
             bail!(span, "loop seems to be infinite");
         }
 

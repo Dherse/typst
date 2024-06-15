@@ -206,7 +206,7 @@ impl Drop for RegisterInner {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub enum ReadableGuard {
     Register(RegisterGuard),
     Captured(RegisterGuard),

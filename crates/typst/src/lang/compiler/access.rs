@@ -3,76 +3,97 @@ use typst_syntax::Span;
 
 use super::call::ArgsCompile;
 use super::{Compile, Compiler, IntoCompiledValue, ReadableGuard, RegisterGuard};
-use crate::diag::{bail, error, At, HintedString, SourceResult};
+use crate::diag::{bail, error, At, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cannot_mutate_constant, unknown_variable, Func, IntoValue, Module, Type, Value,
 };
-use crate::lang::compiled::CompiledAccess;
-use crate::lang::operands::AccessId;
+use crate::lang::compiled::{CompiledAccess, CompiledAccessRoot, CompiledAccessSegment};
+use crate::lang::operands::{AccessId, Global};
 use crate::utils::PicoStr;
 
-#[derive(Debug, Clone, Hash)]
-pub enum Access {
-    /// Access this value through a register.
+#[derive(Clone, Hash, PartialEq)]
+pub struct Access {
+    pub root: AccessRoot,
+    pub tail: Vec<AccessTail>,
+    pub mutable: bool,
+    pub in_math: bool,
+}
+
+#[derive(Clone, Hash, PartialEq)]
+pub enum AccessRoot {
     Register(RegisterGuard),
+    Readable(ReadableGuard),
+    /// Access this value via a function call.
+    Call {
+        /// The span of the call.
+        span: Span,
+        /// The function to call.
+        func: ReadableGuard,
+        /// The arguments to pass to the function.
+        args: ReadableGuard,
+        /// Whether the call has a trailing comma.
+        trailing_comma: bool,
+    },
+}
 
-    /// Access this value through a chained access.
-    Chained(Span, Span, AccessId, PicoStr),
-
-    /// Access a global value.
-    Global(Module),
-
-    /// A type that is accessed through a chain of accesses.
-    Type(Type),
-
-    /// Access this value through a chain of accesses.
-    Value(Value),
-
+#[derive(Clone, Hash, PartialEq)]
+pub enum AccessTail {
+    /// Access this value through a field.
+    Field {
+        /// The span of the field.
+        span: Span,
+        /// The name of the field.
+        name: PicoStr,
+    },
     /// Access this value through an accessor method.
-    Func(Func),
-
-    /// Access this value through an accessor method.
-    AccessorMethod(AccessId, PicoStr, ReadableGuard),
+    Method {
+        /// The span of the method.
+        span: Span,
+        /// The span of the function name.
+        name_span: Span,
+        /// The name of the method.
+        name: PicoStr,
+        /// The readable to access the arguments from.
+        args: ReadableGuard,
+        /// Whether the call has a trailing comma.
+        trailing_comma: bool,
+    },
 }
 
 impl Access {
-    /// Tries to resolve this access to a constant value.
-    pub fn resolve(&self, compiler: &Compiler<'_>) -> SourceResult<Option<Value>> {
-        match self {
-            Access::Register(r) => {
-                let Some(v) = compiler.resolve_var(r) else {
-                    return Ok(None);
-                };
-
-                if !v.constant {
-                    return Ok(None);
-                }
-
-                let default = compiler.resolve_default(r);
-                Ok(default)
-            }
-            Access::Chained(_, _, other, v) => {
-                let Some(access) = compiler.get_access(other) else {
-                    return Ok(None);
-                };
-
-                let value = access.resolve(compiler)?;
-
-                // We purposefully ignore missing fields because we want to avoid
-                // issues with special methods on some types like `.with` on Func.
-                Ok(value
-                    .map(|access| access.field(v.resolve()))
-                    .transpose()
-                    .ok()
-                    .flatten())
-            }
-            Access::Global(global) => Ok(Some(Value::Module(global.clone()))),
-            Access::Type(ty) => Ok(Some(Value::Type(*ty))),
-            Access::Value(value) => Ok(Some(value.clone())),
-            Access::Func(func) => Ok(Some(Value::Func(func.clone()))),
-            Access::AccessorMethod(_, _, _) => Ok(None),
+    pub fn register(reg: RegisterGuard, mutable: bool) -> Self {
+        Self {
+            root: AccessRoot::Register(reg),
+            tail: vec![],
+            mutable,
+            in_math: false,
         }
+    }
+    pub fn chained(mut self, span: Span, field: PicoStr) -> Self {
+        self.tail.push(AccessTail::Field { span, name: field });
+        self
+    }
+
+    pub fn as_simple(&self) -> Option<RegisterGuard> {
+        if !self.tail.is_empty() {
+            return None;
+        }
+
+        match &self.root {
+            AccessRoot::Register(reg) => Some(reg.clone()),
+            AccessRoot::Readable(ReadableGuard::Register(reg)) => Some(reg.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn with_math(mut self, in_math: bool) -> Self {
+        self.in_math = in_math;
+        self
+    }
+
+    pub fn resolve(&self, compiler: &Compiler) -> HintedStrResult<Option<&Value>> {
+        Ok(None)
     }
 }
 
@@ -80,44 +101,91 @@ impl IntoCompiledValue for Access {
     type CompiledValue = CompiledAccess;
 
     fn into_compiled_value(self) -> Self::CompiledValue {
-        match self {
-            Access::Register(r) => CompiledAccess::Register(r.into()),
-            Access::Chained(parent_span, span, other, v) => {
-                CompiledAccess::Chained(parent_span, other, v.resolve(), span)
+        let root = match self.root {
+            AccessRoot::Register(reg) => CompiledAccessRoot::Register(reg.into()),
+            AccessRoot::Readable(read) => CompiledAccessRoot::Readable(read.into()),
+            AccessRoot::Call { span, func, args, trailing_comma } => {
+                CompiledAccessRoot::Call {
+                    span,
+                    func: func.into(),
+                    args: args.into(),
+                    trailing_comma,
+                }
             }
-            Access::Global(global) => CompiledAccess::Module(global.into_value()),
-            Access::Type(ty) => CompiledAccess::Type(ty.into_value()),
-            Access::Value(value) => CompiledAccess::Value(value),
-            Access::Func(func) => CompiledAccess::Func(func.into_value()),
-            Access::AccessorMethod(other, v, r) => {
-                CompiledAccess::AccessorMethod(other, v.resolve(), r.into())
-            }
+        };
+
+        let segments = self
+            .tail
+            .into_iter()
+            .map(|tail| match tail {
+                AccessTail::Field { span, name } => {
+                    CompiledAccessSegment::Field { span, name: name.resolve() }
+                }
+                AccessTail::Method { span, name, args, name_span, trailing_comma } => {
+                    CompiledAccessSegment::Method {
+                        span,
+                        name_span,
+                        name: name.resolve(),
+                        args: args.into(),
+                        trailing_comma,
+                    }
+                }
+            })
+            .collect();
+
+        CompiledAccess {
+            root,
+            segments,
+            mutable: self.mutable,
+            in_math: self.in_math,
         }
     }
 }
 
-pub trait CompileAccess {
-    /// Generate an access to the value.
-    fn access(
-        self,
-        compiler: &mut Compiler,
-        engine: &mut Engine,
-        mutable: bool,
-    ) -> SourceResult<Access>;
-}
-
-impl CompileAccess for ast::Expr<'_> {
+pub trait CompileAccess: Sized {
     fn access(
         self,
         compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access> {
+        let mut tail = vec![];
+        let root = self.access_root(compiler, engine, mutable, &mut tail)?;
+
+        Ok(Access { root, tail, mutable, in_math: false })
+    }
+
+    /// Generate an access to the value.
+    fn access_root(
+        self,
+        compiler: &mut Compiler,
+        engine: &mut Engine,
+        mutable: bool,
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<AccessRoot>;
+
+    fn access_tail(
+        self,
+        compiler: &mut Compiler,
+        engine: &mut Engine,
+        mutable: bool,
+        out: &mut Vec<AccessTail>,
+    ) -> SourceResult<()>;
+}
+
+impl CompileAccess for ast::Expr<'_> {
+    fn access_root(
+        self,
+        compiler: &mut Compiler,
+        engine: &mut Engine,
+        mutable: bool,
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<AccessRoot> {
         match self {
-            Self::Ident(v) => v.access(compiler, engine, mutable),
-            Self::Parenthesized(v) => v.access(compiler, engine, mutable),
-            Self::FieldAccess(v) => v.access(compiler, engine, mutable),
-            Self::FuncCall(v) => v.access(compiler, engine, mutable),
+            Self::Ident(v) => v.access_root(compiler, engine, mutable, tail),
+            Self::Parenthesized(v) => v.access_root(compiler, engine, mutable, tail),
+            Self::FieldAccess(v) => v.access_root(compiler, engine, mutable, tail),
+            Self::FuncCall(v) => v.access_root(compiler, engine, mutable, tail),
             _ if mutable => {
                 bail!(self.span(), "cannot mutate a temporary value");
             }
@@ -127,47 +195,62 @@ impl CompileAccess for ast::Expr<'_> {
                 // Even if we allocate an unnecessary register, it is still preferable for
                 // easier implementation of accesses overall.
                 other.compile(compiler, engine, register.clone().into())?;
-                Ok(Access::Register(register))
+                Ok(AccessRoot::Register(register))
             }
+        }
+    }
+
+    fn access_tail(
+        self,
+        compiler: &mut Compiler,
+        engine: &mut Engine,
+        mutable: bool,
+        out: &mut Vec<AccessTail>,
+    ) -> SourceResult<()> {
+        match self {
+            Self::Ident(v) => v.access_tail(compiler, engine, mutable, out),
+            Self::Parenthesized(v) => v.access_tail(compiler, engine, mutable, out),
+            Self::FieldAccess(v) => v.access_tail(compiler, engine, mutable, out),
+            Self::FuncCall(v) => v.access_tail(compiler, engine, mutable, out),
+            _ if mutable => {
+                bail!(self.span(), "cannot mutate a temporary value");
+            }
+            _ => Ok(()),
         }
     }
 }
 
 impl CompileAccess for ast::Ident<'_> {
-    fn access(
+    fn access_root(
         self,
         compiler: &mut Compiler,
         _: &mut Engine,
         mutable: bool,
-    ) -> SourceResult<Access> {
+        _: &mut Vec<AccessTail>,
+    ) -> SourceResult<AccessRoot> {
         match compiler.read(self.span(), self.get(), mutable) {
-            Some(ReadableGuard::Register(reg)) => {
-                // Make a variable as no longer constant.
-                if mutable {
-                    compiler.mutate_variable(self.as_str());
-                }
-
-                Ok(Access::Register(reg))
-            }
+            Some(ReadableGuard::Register(reg)) => Ok(AccessRoot::Register(reg)),
             Some(ReadableGuard::Captured(cap)) => {
-                if mutable {
+                if mutable && compiler.contextual {
+                    bail!(self.span(), "variables from outside the context expression are read-only and cannot be modified")
+                } else if mutable {
                     bail!(self.span(), "variables from outside the function are read-only and cannot be modified")
                 } else {
-                    Ok(Access::Register(cap))
+                    Ok(AccessRoot::Register(cap))
                 }
             }
             Some(ReadableGuard::GlobalModule) => {
                 if mutable {
                     return Err(cannot_mutate_constant(self.get())).at(self.span());
                 } else {
-                    Ok(Access::Global(compiler.library().global.clone()))
+                    Ok(AccessRoot::Readable(ReadableGuard::GlobalModule))
                 }
             }
             Some(ReadableGuard::Global(global)) => {
                 if mutable {
                     return Err(cannot_mutate_constant(self.get())).at(self.span());
                 } else {
-                    Ok(compiler
+                    let const_ = compiler
                         .library()
                         .global
                         .field_by_index(global.as_raw() as usize)
@@ -178,8 +261,10 @@ impl CompileAccess for ast::Ident<'_> {
                             ))
                         })
                         .at(self.span())?
-                        .clone()
-                        .into())
+                        .clone();
+
+                    let const_id = compiler.const_(const_);
+                    Ok(AccessRoot::Readable(ReadableGuard::Constant(const_id)))
                 }
             }
             None => {
@@ -188,105 +273,139 @@ impl CompileAccess for ast::Ident<'_> {
                     return Err(cannot_mutate_constant(self.get())).at(self.span());
                 }
 
-                // Special case for
-
                 return Err(unknown_variable(self.get())).at(self.span());
             }
             _ => bail!(self.span(), "unexpected variable access"),
         }
     }
+
+    fn access_tail(
+        self,
+        _: &mut Compiler,
+        _: &mut Engine,
+        _: bool,
+        _: &mut Vec<AccessTail>,
+    ) -> SourceResult<()> {
+        bail!(
+            self.span(),
+            "unexpected identifier, expected field access or function call"
+        )
+    }
 }
 
 impl CompileAccess for ast::Parenthesized<'_> {
-    fn access(
+    fn access_root(
         self,
         compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
-    ) -> SourceResult<Access> {
-        self.expr().access(compiler, engine, mutable)
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<AccessRoot> {
+        self.expr().access_root(compiler, engine, mutable, tail)
+    }
+
+    fn access_tail(
+        self,
+        compiler: &mut Compiler,
+        engine: &mut Engine,
+        mutable: bool,
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<()> {
+        self.expr().access_tail(compiler, engine, mutable, tail)
     }
 }
 
 impl CompileAccess for ast::FieldAccess<'_> {
-    fn access(
+    fn access_root(
         self,
         compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
-    ) -> SourceResult<Access> {
-        let left = self.target().access(compiler, engine, mutable)?;
-        let field = self.field().get();
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<AccessRoot> {
+        let root = self.target().access_root(compiler, engine, mutable, tail)?;
+        let field = self.field().as_str();
 
-        macro_rules! field {
-            ($this:expr, $value:expr, $field:expr, $left:expr) => {{
-                match $value.field($field) {
-                    Ok(field) => field.clone(),
-                    Err(_) => {
-                        let left_id = compiler.access($left);
-                        return Ok(Access::Chained(
-                            $this.target().span(),
-                            $this.field().span(),
-                            left_id,
-                            PicoStr::new(field),
-                        ));
-                    }
-                }
-            }};
-        }
+        tail.push(AccessTail::Field {
+            span: self.field().span(),
+            name: PicoStr::new(field),
+        });
 
-        Ok(match &left {
-            Access::Global(global) => Access::from(field!(self, global, field, left)),
-            Access::Type(ty) => Access::from(field!(self, ty, field, left)),
-            Access::Func(func) => Access::from(field!(self, func, field, left)),
-            Access::Value(value) => Access::from(field!(self, value, field, left)),
-            _ => {
-                let index = compiler.access(left);
-                Access::Chained(
-                    self.target().span(),
-                    self.field().span(),
-                    index,
-                    PicoStr::new(field),
-                )
-            }
-        })
+        Ok(root)
     }
-}
 
-impl From<Value> for Access {
-    fn from(value: Value) -> Self {
-        match value {
-            Value::Type(ty_) => Access::Type(ty_),
-            Value::Func(func_) => Access::Func(func_),
-            value => Access::Value(value),
-        }
+    fn access_tail(
+        self,
+        _: &mut Compiler,
+        _: &mut Engine,
+        _: bool,
+        _: &mut Vec<AccessTail>,
+    ) -> SourceResult<()> {
+        bail!(self.span(), "unexpected field access, expected function call");
     }
 }
 
 impl CompileAccess for ast::FuncCall<'_> {
-    fn access(
+    fn access_root(
         self,
         compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
-    ) -> SourceResult<Access> {
-        if !mutable {
-            // Compile the function call.
-            let register = compiler.allocate();
-            self.compile(compiler, engine, register.clone().into())?;
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<AccessRoot> {
+        // Compile the arguments.
+        let args = self.args();
+        let args_reg = args.compile_args(compiler, engine, self.span())?;
 
-            Ok(Access::Register(register))
-        } else if let ast::Expr::FieldAccess(access) = self.callee() {
+        if let ast::Expr::FieldAccess(access) = self.callee() {
+            let left = access.target().access_root(compiler, engine, mutable, tail)?;
+
+            tail.push(AccessTail::Method {
+                span: self.span(),
+                name_span: access.field().span(),
+                name: PicoStr::new(access.field().as_str()),
+                args: args_reg,
+                trailing_comma: args.trailing_comma(),
+            });
+
+            Ok(left)
+        } else if !mutable {
+            // Compile the function call.
+            let func = self.callee().compile_to_readable(compiler, engine)?;
+
+            Ok(AccessRoot::Call {
+                span: self.span(),
+                func,
+                args: args_reg,
+                trailing_comma: args.trailing_comma(),
+            })
+        } else {
+            bail!(self.span(), "cannot mutate a temporary value")
+        }
+    }
+
+    fn access_tail(
+        self,
+        compiler: &mut Compiler,
+        engine: &mut Engine,
+        mutable: bool,
+        tail: &mut Vec<AccessTail>,
+    ) -> SourceResult<()> {
+        if let ast::Expr::FieldAccess(access) = self.callee() {
             // Compile the arguments.
             let args = self.args();
-            let args = args.compile_args(compiler, engine, self.span())?;
+            let args_reg = args.compile_args(compiler, engine, self.span())?;
 
-            // Ensure that the arguments live long enough.
-            let left = access.target().access(compiler, engine, mutable)?;
-            let index = compiler.access(left);
+            access.target().access_tail(compiler, engine, mutable, tail)?;
+            tail.push(AccessTail::Method {
+                span: access.field().span(),
+                name_span: access.field().span(),
+                name: PicoStr::new(access.field().as_str()),
+                args: args_reg,
+                trailing_comma: args.trailing_comma(),
+            });
 
-            let method = access.field();
-            Ok(Access::AccessorMethod(index, PicoStr::new(method.get()), args))
+            Ok(())
         } else {
             bail!(self.span(), "cannot mutate a temporary value")
         }

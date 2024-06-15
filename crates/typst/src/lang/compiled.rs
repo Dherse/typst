@@ -17,10 +17,15 @@ use super::operands::{Register, StringId};
 
 #[derive(Clone, Hash)]
 pub struct CompiledCode {
+    /// Whether the output is displayed.
+    pub display: bool,
     /// The name of the code.
     pub name: Option<EcoString>,
     /// The span where the code was defined.
     pub span: Span,
+    /// Whether the code is being observed.
+    /// This is used for disabling memoization on evaluation.
+    pub observed: bool,
     /// The instructions as byte code.
     pub instructions: Arc<[Opcode]>,
     /// The spans of the instructions.
@@ -103,6 +108,7 @@ impl CompiledClosure {
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub struct CompiledPattern {
     pub span: Span,
+    pub declare: bool,
     pub kind: CompiledPatternKind,
 }
 
@@ -112,7 +118,7 @@ pub enum CompiledPatternKind {
     Single(CompiledPatternItem),
 
     /// Destructure into a tuple of locals.
-    Tuple(SmallVec<[CompiledPatternItem; 2]>, bool),
+    Tuple(SmallVec<[CompiledPatternItem; 2]>, Span, bool),
 }
 
 #[derive(Debug, Clone, Hash, PartialEq)]
@@ -195,33 +201,64 @@ pub struct CodeCapture {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq)]
-pub enum CompiledAccess {
-    /// Access this value through a readable.
+pub enum CompiledAccessRoot {
+    /// Access this value through a register.
     Register(Register),
 
-    /// Access this value through the global scope.
-    Module(Value),
-
-    /// Access this value through a closure.
-    Func(Value),
+    /// Access this value through any other readable.
+    Readable(Readable),
 
     /// Access this value directly.
     Value(Value),
 
-    /// Access this value through a type.
-    Type(Value),
+    /// Access this value via a function call.
+    Call {
+        /// The span of the call.
+        span: Span,
+        /// The function to call.
+        func: Readable,
+        /// The arguments to pass to the function.
+        args: Readable,
+        /// Whether there is a trailing comma, only relevant in math contexts.
+        trailing_comma: bool,
+    },
+}
 
-    /// Access this value through a chained access.
-    ///
-    /// This uses IDs in order to: avoid allocating, allow all of the accesses
-    /// to be contiguous in memory.
-    Chained(Span, AccessId, &'static str, Span),
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum CompiledAccessSegment {
+    /// Access this value through a field.
+    Field {
+        /// The span of the field.
+        span: Span,
+        /// The name of the field.
+        name: &'static str,
+    },
 
     /// Access this value through an accessor method.
-    ///
-    /// This uses IDs in order to: avoid allocating, allow all of the accesses
-    /// to be contiguous in memory.
-    AccessorMethod(AccessId, &'static str, Readable),
+    Method {
+        /// The span of the method.
+        span: Span,
+        /// The span of the function name.
+        name_span: Span,
+        /// The name of the method.
+        name: &'static str,
+        /// The readable to access the arguments from.
+        args: Readable,
+        /// Whether there is a trailing comma, only relevant in math contexts.
+        trailing_comma: bool,
+    },
+}
+
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub struct CompiledAccess {
+    /// The root of the access.
+    pub root: CompiledAccessRoot,
+    /// The segments of the access.
+    pub segments: SmallVec<[CompiledAccessSegment; 1]>,
+    /// Whether the access is expected to be mutable.
+    pub mutable: bool,
+    /// Whether the access occurs in a math context.
+    pub in_math: bool,
 }
 
 #[derive(Debug, Clone, Hash)]

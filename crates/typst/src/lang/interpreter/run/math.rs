@@ -32,6 +32,7 @@ impl SimpleRun for Attach {
         // Obtain the base, top, and bottom.
         let base = vm.read(self.base);
         let top = vm.read(self.top);
+        let primes = vm.read(self.primes);
         let bottom = vm.read(self.bottom);
 
         // Make the value into an attach.
@@ -39,6 +40,8 @@ impl SimpleRun for Attach {
 
         if let Some(top) = top {
             value.push_t(Some(top.clone().display()));
+        } else if let Some(primes) = primes {
+            value.push_tr(Some(primes.clone().display()));
         }
 
         if let Some(bottom) = bottom {
@@ -104,3 +107,76 @@ impl SimpleRun for Equation {
         Ok(())
     }
 }
+
+/*impl SimpleRun for CallMath {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
+        // Try calling the function.
+        let call = Call { closure: self.fallback, out: self.out };
+
+        let err = match call.run(span, vm, engine) {
+            Ok(()) => return Ok(()),
+            Err(e) => e,
+        };
+
+        // Get the arguments.
+        let args = match self.args {
+            Readable::Reg(reg) => vm.take(reg).into_owned(),
+            other => vm.read(other).clone(),
+        };
+
+        let mut args = match args {
+            Value::None => Args::new::<Value>(span, []),
+            Value::Args(args) => args,
+            _ => {
+                bail!(
+                    span,
+                    "expected arguments or none, found {}",
+                    args.ty().long_name()
+                );
+            }
+        };
+
+        // Get the callee.
+        let callee = vm.read(self.callee);
+
+        if let Value::Symbol(sym) = &*callee {
+            let c = sym.get();
+            if let Some(accent) = Symbol::combining_accent(c) {
+                let base = args.expect("base")?;
+                let size = args.named("size")?;
+                args.finish()?;
+                let mut accent = AccentElem::new(base, Accent::new(accent));
+                if let Some(size) = size {
+                    accent = accent.with_size(size);
+                }
+
+                // Write the value to the output.
+                vm.write_one(self.out, accent.pack().spanned(span)).at(span)?;
+
+                return Ok(());
+            }
+        }
+
+        let mut body = Content::empty();
+        for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+            if i > 0 {
+                body += TextElem::packed(',');
+            }
+            body += arg;
+        }
+
+        if self.trailing_comma {
+            body += TextElem::packed(',');
+        }
+
+        let out = callee.clone().display().spanned(span)
+            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+                .pack()
+                .spanned(span);
+
+        // Write the value to the output.
+        vm.write_one(self.out, out).at(span)?;
+
+        Ok(())
+    }
+}*/

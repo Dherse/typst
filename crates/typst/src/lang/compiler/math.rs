@@ -118,27 +118,32 @@ impl Compile for ast::MathAttach<'_> {
     ) -> SourceResult<()> {
         let base = self.base().compile_to_readable(compiler, engine)?;
 
-        let top = if let Some(top) = self
+        let mut t = None;
+        let mut tr = None;
+        if let Some(top) = self
             .top()
             .map(|value| value.compile_to_readable(compiler, engine))
             .transpose()?
         {
-            Some(top)
-        } else {
-            self.primes()
-                .map(|value| value.compile_to_readable(compiler, engine))
-                .transpose()?
+            t = Some(top);
+        } else if let Some(primes) = self
+            .primes()
+            .map(|value| value.compile_to_readable(compiler, engine))
+            .transpose()?
+        {
+            tr = Some(primes);
         };
 
-        let bottom = self.bottom().map_or(Ok(None), |value| {
+        let b = self.bottom().map_or(Ok(None), |value| {
             value.compile_to_readable(compiler, engine).map(Some)
         })?;
 
         compiler.attach(
             self.span(),
             base,
-            top.map(|t| t.into()),
-            bottom.map(|b| b.into()),
+            t.map(|b| b.into()),
+            tr.map(|b| b.into()),
+            b.map(|b| b.into()),
             output,
         );
 

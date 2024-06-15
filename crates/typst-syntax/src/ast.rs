@@ -208,6 +208,36 @@ impl<'a> Expr<'a> {
             _ => Self::from_untyped(node),
         }
     }
+
+    /// Returns [`true`] if the result of this expression is expected to be
+    /// displayed. Although this is not obligated to be accurate.
+    pub fn is_display(&self) -> bool {
+        match self {
+            Self::Content(_)
+            | Self::Contextual(_)
+            | Self::Emph(_)
+            | Self::Strong(_)
+            | Self::Raw(_)
+            | Self::Link(_)
+            | Self::Label(_)
+            | Self::Ref(_)
+            | Self::Heading(_)
+            | Self::List(_)
+            | Self::Enum(_)
+            | Self::Term(_)
+            | Self::Equation(_)
+            | Self::Math(_)
+            | Self::MathIdent(_)
+            | Self::MathAlignPoint(_)
+            | Self::MathDelimited(_)
+            | Self::MathAttach(_)
+            | Self::MathPrimes(_)
+            | Self::MathFrac(_)
+            | Self::MathRoot(_) => true,
+            Self::Parenthesized(paren) => paren.expr().is_display(),
+            _ => false,
+        }
+    }
 }
 
 impl<'a> AstNode<'a> for Expr<'a> {

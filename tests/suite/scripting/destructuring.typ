@@ -329,7 +329,7 @@
 #for (x, y) in [1, 2] {}
 
 --- issue-3275-destructuring-loop-over-string ---
-// Error: 6-12 cannot destructure values of string
+// Error: 6-12 cannot destructure string
 #for (x, y) in "foo" {}
 
 --- issue-3275-destructuring-loop-over-string-array ---
@@ -337,7 +337,7 @@
 #for (x, y) in ("foo", "bar") {}
 
 --- issue-3275-destructuring-loop-over-bytes ---
-// Error: 6-12 cannot destructure values of bytes
+// Error: 6-12 cannot destructure bytes
 #for (x, y) in bytes("😊") {}
 
 --- issue-3275-destructuring-loop-over-bytes-array ---

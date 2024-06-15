@@ -96,7 +96,7 @@
 // Condition must be boolean.
 // If it isn't, neither branch is evaluated.
 // Error: 5-14 expected boolean, found string
-#if "a" + "b" { nope } else { nope }
+#if "a" + "b" { panic("a") } else { panic("b") }
 
 --- if-condition-invalid-and-wrong-type ---
 // Make sure that we don't complain twice.

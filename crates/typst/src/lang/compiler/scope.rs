@@ -40,7 +40,7 @@ pub struct Scope<'lib> {
     /// Variable definitions within this scope.
     pub variables: IndexMap<EcoString, Variable>,
     /// Captured values within this scope.
-    pub captures: IndexMap<EcoString, Capture>,
+    pub captures: Option<IndexMap<EcoString, Capture>>,
     /// The default values of variables.
     pub defaults: Option<Vec<(RegisterGuard, Value)>>,
 }
@@ -63,8 +63,8 @@ impl<'lib> Scope<'lib> {
             global,
             registers,
             parent,
+            captures: capturing.is_some().then(IndexMap::new),
             capturing,
-            captures: IndexMap::new(),
             variables: IndexMap::new(),
         }
     }
@@ -197,7 +197,7 @@ impl<'lib> Scope<'lib> {
     }
 
     fn read_captured(&mut self, span: Span, var: &str) -> Option<ReadableGuard> {
-        if let Some(capture) = self.captures.get(var) {
+        if let Some(capture) = self.captures.as_ref().and_then(|cap| cap.get(var)) {
             return Some(ReadableGuard::Captured(capture.register.clone().into()));
         }
 
@@ -205,7 +205,9 @@ impl<'lib> Scope<'lib> {
             // If we are capturing, we can read from the capturing scope.
             if let Some(readable) = capturing.read_no_global(span, var) {
                 let reg = self.allocate_pristine();
-                self.captures.insert(
+
+                let captures = self.captures.as_mut().unwrap();
+                captures.insert(
                     var.into(),
                     Capture {
                         name: var.into(),
@@ -221,20 +223,24 @@ impl<'lib> Scope<'lib> {
             // If we are not capturing, we can try and capture from the parent scope.
             let mut next = self.parent.clone();
             while let Some(ancestor) = next.take() {
-                let ref_ = (*ancestor).borrow_mut();
-                if let Some(mut capturing) =
-                    ref_.capturing.as_deref().map(RefCell::borrow_mut)
-                {
-                    if let Some(capture) = ref_.captures.get(var) {
+                let mut ref_ = (*ancestor).borrow_mut();
+                if let Some(capturing) = &ref_.capturing {
+                    let mut capturing = capturing.borrow_mut();
+                    if let Some(capture) =
+                        ref_.captures.as_ref().and_then(|cap| cap.get(var))
+                    {
                         return Some(ReadableGuard::Captured(
                             capture.register.clone().into(),
                         ));
                     }
 
                     if let Some(readable) = capturing.read_no_global(span, var) {
+                        drop(capturing);
+
                         // We can allocate inside of the borrowed scope because it is a parent!
                         let reg = ref_.allocate_pristine();
-                        self.captures.insert(
+                        let captures = ref_.captures.as_mut().unwrap();
+                        captures.insert(
                             var.into(),
                             Capture {
                                 name: var.into(),

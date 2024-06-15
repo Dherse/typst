@@ -386,8 +386,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "comemo"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df6916408a724339aa77b18214233355f3eb04c42eb895e5f8909215bd8a7a91"
+source = "git+https://github.com/Dherse/comemo?rev=683de0d#683de0dd0d954cc95e60cc61baff71e5ece77a52"
 dependencies = [
  "comemo-macros",
  "once_cell",
@@ -398,8 +397,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8936e42f9b4f5bdfaf23700609ac1f11cb03ad4c1ec128a4ee4fd0903e228db"
+source = "git+https://github.com/Dherse/comemo?rev=683de0d#683de0dd0d954cc95e60cc61baff71e5ece77a52"
 dependencies = [
  "proc-macro2",
  "quote",

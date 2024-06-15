@@ -13,7 +13,15 @@ use super::{Compiler, IntoCompiledValue};
 #[derive(Debug, Clone, Hash)]
 pub struct Pattern {
     pub span: Span,
+    pub declare: bool,
     pub kind: PatternKind,
+}
+
+impl Pattern {
+    pub fn with_declare(mut self, declare: bool) -> Self {
+        self.declare = declare;
+        self
+    }
 }
 
 impl IntoCompiledValue for Pattern {
@@ -22,6 +30,7 @@ impl IntoCompiledValue for Pattern {
     fn into_compiled_value(self) -> Self::CompiledValue {
         CompiledPattern {
             span: self.span,
+            declare: self.declare,
             kind: self.kind.into_compiled_value(),
         }
     }
@@ -51,15 +60,16 @@ impl PatternCompile for ast::Pattern<'_> {
                 ast::Expr::Ident(ident) => {
                     let access = if declare {
                         let id = compiler.declare(ident.span(), ident.get().as_str());
-                        Access::Register(id)
+                        Access::register(id, true)
                     } else {
-                        ident.access(compiler, engine, false)?
+                        ident.access(compiler, engine, true)?
                     };
 
                     let access_id = compiler.access(access);
                     let name_id = compiler.string(ident.as_str());
                     Ok(Pattern {
                         span: ident.span(),
+                        declare: false,
                         kind: PatternKind::Single(PatternItem::Simple(
                             normal.span(),
                             access_id,
@@ -71,6 +81,7 @@ impl PatternCompile for ast::Pattern<'_> {
             },
             ast::Pattern::Placeholder(placeholder) => Ok(Pattern {
                 span: placeholder.span(),
+                declare: false,
                 kind: PatternKind::Single(PatternItem::Placeholder(placeholder.span())),
             }),
             ast::Pattern::Destructuring(destructure) => {
@@ -85,9 +96,9 @@ impl PatternCompile for ast::Pattern<'_> {
                             let access = if declare {
                                 let id =
                                     compiler.declare(ident.span(), ident.get().as_str());
-                                Access::Register(id)
+                                Access::register(id, true)
                             } else {
-                                ident.access(compiler, engine, false)?
+                                ident.access(compiler, engine, true)?
                             };
 
                             let access_id = compiler.access(access);
@@ -110,9 +121,9 @@ impl PatternCompile for ast::Pattern<'_> {
                                 let access = if declare {
                                     let id = compiler
                                         .declare(ident.span(), ident.get().as_str());
-                                    Access::Register(id)
+                                    Access::register(id, true)
                                 } else {
-                                    ident.access(compiler, engine, false)?
+                                    ident.access(compiler, engine, true)?
                                 };
 
                                 let access_id = compiler.access(access);
@@ -125,14 +136,14 @@ impl PatternCompile for ast::Pattern<'_> {
                             let access = if let ast::Expr::Ident(ident) = named.expr() {
                                 let id =
                                     compiler.declare(ident.span(), ident.get().as_str());
-                                Access::Register(id)
+                                Access::register(id, true)
                             } else if declare {
                                 bail!(
                                     named.expr().span(),
                                     "cannot declare a named pattern"
                                 );
                             } else {
-                                named.expr().access(compiler, engine, false)?
+                                named.expr().access(compiler, engine, true)?
                             };
 
                             let access_id = compiler.access(access);
@@ -148,7 +159,8 @@ impl PatternCompile for ast::Pattern<'_> {
 
                 Ok(Pattern {
                     span: destructure.span(),
-                    kind: PatternKind::Tuple(items, has_sink),
+                    declare: false,
+                    kind: PatternKind::Tuple(items, destructure.span(), has_sink),
                 })
             }
         }
@@ -161,7 +173,7 @@ pub enum PatternKind {
     Single(PatternItem),
 
     /// Destructure into a tuple of locals.
-    Tuple(SmallVec<[PatternItem; 2]>, bool),
+    Tuple(SmallVec<[PatternItem; 2]>, Span, bool),
 }
 
 impl IntoCompiledValue for PatternKind {
@@ -170,11 +182,12 @@ impl IntoCompiledValue for PatternKind {
     fn into_compiled_value(self) -> Self::CompiledValue {
         match self {
             Self::Single(item) => CompiledPatternKind::Single(item.into_compiled_value()),
-            Self::Tuple(items, has_sink) => CompiledPatternKind::Tuple(
+            Self::Tuple(items, span, has_sink) => CompiledPatternKind::Tuple(
                 items
                     .into_iter()
                     .map(IntoCompiledValue::into_compiled_value)
                     .collect(),
+                span,
                 has_sink,
             ),
         }

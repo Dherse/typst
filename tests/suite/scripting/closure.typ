@@ -126,7 +126,7 @@
   let f(x) = x + 1
 
   // Error: 8-13 unexpected argument
-  f(1, "two", () => x)
+  f(1, "two", () => panic("here"))
 }
 
 --- closure-capture-in-lvalue ---

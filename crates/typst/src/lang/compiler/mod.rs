@@ -84,10 +84,14 @@ pub struct Compiler<'lib> {
     modules: Remapper<ModuleId, DynamicModule>,
     /// The closure remapper.
     closures: Remapper<ClosureId, CompiledClosure>,
+    /// Whether we are in fact in a contextual rather than a function scope.
+    contextual: bool,
     /// The current scope counter.
     scopes: u16,
     /// The current jump counter.
     jumps: u16,
+    /// Whether a value in the current scope is being observed.
+    observed: bool,
 }
 
 impl<'lib> Compiler<'lib> {
@@ -115,6 +119,8 @@ impl<'lib> Compiler<'lib> {
             closures: Remapper::default(),
             scopes: 0,
             jumps: 0,
+            contextual: false,
+            observed: false,
         }
     }
 
@@ -142,7 +148,15 @@ impl<'lib> Compiler<'lib> {
             closures: Remapper::default(),
             scopes: 0,
             jumps: 0,
+            contextual: false,
+            observed: false,
         }
+    }
+
+    /// Set whether we are compiling a `contextual` scope.
+    pub fn with_contextual(mut self, contextual: bool) -> Self {
+        self.contextual = contextual;
+        self
     }
 
     /// Appends an instruction and its span to the instruction list.
@@ -272,6 +286,11 @@ impl<'lib> Compiler<'lib> {
         self.closures.insert(closure)
     }
 
+    pub fn observe(&mut self, span: Span, value: impl Into<Readable>) {
+        self.observed = true;
+        self.observe_isr(span, value);
+    }
+
     /// Read a variable.
     pub fn read(
         &mut self,
@@ -280,12 +299,12 @@ impl<'lib> Compiler<'lib> {
         mutable: bool,
     ) -> Option<ReadableGuard> {
         if mutable {
-            let guard = self.scope.borrow_mut().read_local(name)?;
-            self.scope.borrow_mut().write(name).ok()?;
-            Some(guard)
-        } else {
-            self.scope.borrow_mut().read(span, name)
+            // We ignore the error as this is only meant to ensure
+            // modified vars aren't declared as const.
+            let _ = self.scope.borrow_mut().write(name);
         }
+
+        self.scope.borrow_mut().read(span, name)
     }
 
     /// Read a math variable.
@@ -401,12 +420,15 @@ impl<'lib> Compiler<'lib> {
         span: Span,
         params: Vec<CompiledParam>,
         local: Option<RegisterGuard>,
+        display: bool,
     ) -> SourceResult<CompiledCode> {
-        let scopes = self.scope.borrow();
+        let mut scopes = self.scope.borrow_mut();
 
         // Convert closure captures to compiled format.
         let captures: Vec<_> = scopes
             .captures
+            .take()
+            .unwrap_or_default()
             .values()
             .map(|capture| CodeCapture {
                 name: capture.name,
@@ -415,6 +437,11 @@ impl<'lib> Compiler<'lib> {
                 register: capture.register.clone().into(),
             })
             .collect();
+
+        drop(scopes);
+
+        // Re-borrow immutably.
+        let scopes = self.scope.borrow();
 
         // Remap jump instructions.
         let mut jumps = self.remap_jumps();
@@ -426,8 +453,10 @@ impl<'lib> Compiler<'lib> {
 
         let registers = scopes.registers.as_ref().map_or(0, |r| r.len());
         Ok(CompiledCode {
+            display,
             defaults: self.get_default_scope().into(),
             name: self.name,
+            observed: self.observed,
             span,
             instructions: self.instructions.into(),
             spans: self.isr_spans.into(),
@@ -454,12 +483,13 @@ impl<'lib> Compiler<'lib> {
         span: Span,
         name: impl Into<EcoString>,
         mut exports: Vec<Export>,
+        display: bool,
     ) -> CompiledCode {
         // Get the global library.
         let global = self.library().clone();
 
         let scopes = self.scope.borrow();
-        debug_assert!(scopes.captures.is_empty());
+        debug_assert!(scopes.captures.is_none());
 
         // Remap jump instructions.
         let mut jumps = self.remap_jumps();
@@ -472,9 +502,11 @@ impl<'lib> Compiler<'lib> {
 
         let registers = scopes.registers.as_ref().map_or(0, |r| r.len());
         CompiledCode {
+            display,
             defaults: self.get_default_scope().into(),
             span,
             registers,
+            observed: self.observed,
             name: Some(name.into()),
             instructions: self.instructions.into(),
             spans: self.isr_spans.into(),

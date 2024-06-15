@@ -1,13 +1,14 @@
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{Args, Bytes, Context, IntoValue, Str, Type, Value};
+use crate::foundations::{missing_method, Args, Bytes, Context, IntoValue, Str, Value};
 
 pub trait ValueAccessor {
     fn is_mut(&self, method: &str) -> bool;
+
+    fn is_access_mut(&self, method: &str) -> bool;
 
     fn call(
         &self,
@@ -36,6 +37,14 @@ pub trait ValueAccessor {
 }
 
 impl ValueAccessor for Value {
+    fn is_access_mut(&self, method: &str) -> bool {
+        match self {
+            Value::Array(_) => matches!(method, "at" | "first" | "last"),
+            Value::Dict(_) => matches!(method, "at"),
+            _ => false,
+        }
+    }
+
     fn is_mut(&self, method: &str) -> bool {
         match self {
             Value::Array(_) => matches!(method, "push" | "pop" | "insert" | "remove"),
@@ -85,7 +94,7 @@ impl ValueAccessor for Value {
         value: Value,
     ) -> SourceResult<Value> {
         let ty = value.ty();
-        let missing = || Err(missing_method(ty, method)).at(span);
+        let missing = || missing_method(ty, method).at(span);
         let mut output: Value = Value::None;
 
         match self {
@@ -120,10 +129,4 @@ impl ValueAccessor for Value {
 
         Ok(output)
     }
-}
-
-/// The missing method error message.
-#[cold]
-fn missing_method(ty: Type, method: &str) -> EcoString {
-    eco_format!("type {ty} has no method `{method}`")
 }

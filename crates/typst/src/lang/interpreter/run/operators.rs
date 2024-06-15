@@ -5,8 +5,7 @@ use crate::engine::Engine;
 use crate::foundations::Value;
 use crate::lang::interpreter::Vm;
 use crate::lang::opcodes::{
-    Add, And, Auto, CopyIsr, Div, Eq, Geq, Gt, In, Leq, Lt, Mul, Neg, Neq, None, Not,
-    NotIn, Or, Pos, ReadAccess, Sub,
+    Add, And, Auto, CopyIsr, Div, Eq, Geq, Gt, In, Leq, Lt, Mul, Neg, Neq, None, Not, NotIn, Observe, Or, Pos, ReadAccess, Sub
 };
 use crate::lang::ops;
 
@@ -258,15 +257,27 @@ impl SimpleRun for CopyIsr {
 }
 
 impl SimpleRun for ReadAccess {
-    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Get the access.
         let access = vm.read(self.access);
 
         // Get the value.
-        let value = access.read(span, vm)?.into_owned();
+        let value = access.get_value(vm, engine)?;
 
         // Write the value to the output.
         vm.write_one(self.out, value).at(span)?;
+
+        Ok(())
+    }
+}
+
+impl SimpleRun for Observe {
+    fn run(&self, _: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
+        // Read the observed value.
+        let value = vm.read(self.value);
+
+        // Observe the value.
+        engine.tracer.value(value.clone(), vm.context.styles().ok().map(|s| s.to_map()));
 
         Ok(())
     }

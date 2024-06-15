@@ -16,31 +16,17 @@ impl Compile for ast::FuncCall<'_> {
     ) -> SourceResult<()> {
         let callee = self.callee();
         let in_math = in_math(callee);
-        let args = self.args();
-        let trailing_comma = args.trailing_comma();
-
-        let args = args.compile_args(compiler, engine, self.span())?;
 
         // Special handling for mutable methods.
-        let callee_access = if let ast::Expr::FieldAccess(access) = callee {
+        let access = if let ast::Expr::FieldAccess(access) = callee {
             let field = access.field();
-
-            access.access(compiler, engine, is_mutating_method(&field))?
+            self.access(compiler, engine, is_mutating_method(field.as_str()))?
         } else {
-            callee.access(compiler, engine, false)?
+            self.access(compiler, engine, false)?
         };
 
-        let closure = compiler.access(callee_access);
-        let callee_span = compiler.span(callee.span());
-        compiler.call(
-            self.span(),
-            closure,
-            args,
-            in_math,
-            trailing_comma,
-            callee_span,
-            output,
-        );
+        let access_id = compiler.access(access.with_math(in_math));
+        compiler.call(self.span(), access_id, output);
 
         Ok(())
     }

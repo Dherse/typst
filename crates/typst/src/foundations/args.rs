@@ -49,6 +49,15 @@ pub struct Args {
     pub items: EcoVec<Arg>,
 }
 
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            span: Span::detached(),
+            items: EcoVec::with_capacity(0),
+        }
+    }
+}
+
 impl Args {
     /// Create positional arguments from a span and values.
     pub fn new<T: IntoValue>(span: Span, values: impl IntoIterator<Item = T>) -> Self {

@@ -48,8 +48,9 @@ impl Compile for ast::Closure<'_> {
                     if let PatternKind::Single(PatternItem::Simple(_, access, name)) =
                         &pattern.kind
                     {
-                        let Some(Access::Register(reg)) =
-                            closure_compiler.get_access(access)
+                        let Some(reg) = closure_compiler
+                            .get_access(access)
+                            .and_then(Access::as_simple)
                         else {
                             bail!(
                                 pat.span(),
@@ -122,15 +123,18 @@ impl Compile for ast::Closure<'_> {
         }
 
         // Compile the body of the closure.
+        let mut display = false;
         match self.body() {
             ast::Expr::Code(code) => {
                 code.body().compile_top_level(&mut closure_compiler, engine)?;
             }
             ast::Expr::Content(content) => {
                 content.body().compile_top_level(&mut closure_compiler, engine)?;
+                display = true;
             }
             other => {
-                other.compile(&mut closure_compiler, engine, WritableGuard::Joined)?
+                other.compile(&mut closure_compiler, engine, WritableGuard::Joined)?;
+                display = other.is_display();
             }
         }
 
@@ -142,6 +146,7 @@ impl Compile for ast::Closure<'_> {
             self.params().span(),
             params,
             closure_local,
+            display,
         )?;
 
         // Get the closure ID.

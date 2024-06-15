@@ -99,7 +99,7 @@ impl Compile for ast::Text<'_> {
         compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
-        let text_elem = TextElem::new(self.get().clone()).pack().spanned(self.span());
+        let text_elem = TextElem::packed(self.get().clone()).spanned(self.span());
 
         Ok(compiler.const_(text_elem).into())
     }

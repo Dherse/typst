@@ -96,6 +96,10 @@ impl Dict {
             .hint("use `insert` to add or update values")
     }
 
+    pub fn at_mut_or_insert(&mut self, key: Str) -> &mut Value {
+        Arc::make_mut(&mut self.0).entry(key).or_insert(Value::None)
+    }
+
     /// Remove the value if the dictionary contains the given key.
     pub fn take(&mut self, key: &str) -> StrResult<Value> {
         Arc::make_mut(&mut self.0)

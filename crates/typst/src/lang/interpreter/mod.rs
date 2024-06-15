@@ -29,7 +29,7 @@ use super::operands::Register;
 pub use self::joiner::*;
 pub use self::methods::*;
 pub use self::read::*;
-pub use self::run::Run;
+pub use self::run::{Iterable, Run};
 pub use self::state::*;
 
 pub struct Vm<'a, 'b> {
@@ -40,7 +40,7 @@ pub struct Vm<'a, 'b> {
     /// The current instruction pointer.
     instruction_pointer: usize,
     /// The joined values.
-    joined: Option<Joiner>,
+    joiner: Option<Joiner>,
     /// The registers.
     registers: &'b mut [Cow<'a, Value>],
     /// The code being executed.
@@ -62,7 +62,7 @@ impl<'a, 'b> Vm<'a, 'b> {
             state: State::empty(),
             output: None,
             instruction_pointer: 0,
-            joined: None,
+            joiner: None,
             registers,
             code,
             iterations: 0,
@@ -86,6 +86,33 @@ impl<'a> Vm<'a, '_> {
     /// Read a register from the VM.
     pub fn read_register<'b>(&'b self, register: Register) -> &'b Cow<'a, Value> {
         &self.registers[register.0 as usize]
+    }
+
+    pub fn read_or_clone(&self, readable: Readable) -> Cow<'a, Value> {
+        match readable {
+            Readable::Reg(reg) => self.registers[reg.0 as usize].clone(),
+            Readable::Const(const_) => {
+                Cow::Borrowed(&self.code.constants[const_.0 as usize])
+            }
+            Readable::Str(string) => Cow::Borrowed(&self.code.strings[string.0 as usize]),
+            Readable::Global(global) => Cow::Borrowed(
+                self.code.global.global.field_by_index(global.0 as usize).unwrap(),
+            ),
+            Readable::Math(math) => Cow::Borrowed(
+                self.code.global.math.field_by_index(math.0 as usize).unwrap(),
+            ),
+            Readable::Bool(b) => {
+                if b {
+                    Cow::Borrowed(&Value::Bool(true))
+                } else {
+                    Cow::Borrowed(&Value::Bool(false))
+                }
+            }
+            Readable::Label(label) => Cow::Borrowed(&self.code.labels[label.0 as usize]),
+            Readable::GlobalModule => Cow::Borrowed(&self.code.global.std),
+            Readable::None => Cow::Borrowed(&Value::None),
+            Readable::Auto => Cow::Borrowed(&Value::Auto),
+        }
     }
 
     /// Take a register from the VM.
@@ -142,17 +169,14 @@ impl<'a> Vm<'a, '_> {
     pub fn join(&mut self, value: impl IntoValue) -> StrResult<()> {
         let value = value.into_value();
 
-        // We don't join `None`.
-        if value.is_none() {
-            return Ok(());
-        }
-
-        if let Some(joiner) = self.joined.take() {
-            self.joined = Some(joiner.join(value)?);
+        if let Some(joiner) = self.joiner.take() {
+            self.joiner = Some(joiner.join(value)?);
+        } else if self.state.is_display() && matches!(value, Value::Label(_)) {
+            // Do nothing if the body only contains a label.
         } else if self.state.is_display() {
-            self.joined = Some(Joiner::Display(SequenceElem::new(vec![value.display()])));
+            self.joiner = Some(Joiner::Display(SequenceElem::new(vec![value.display()])));
         } else {
-            self.joined = Some(Joiner::Value(value));
+            self.joiner = Some(Joiner::Value(value));
         }
 
         Ok(())
@@ -160,10 +184,10 @@ impl<'a> Vm<'a, '_> {
 
     /// Applies a styling to the current joining state.
     pub fn styled(&mut self, styles: Styles) -> StrResult<()> {
-        if let Some(joiner) = self.joined.take() {
-            self.joined = Some(joiner.styled(styles));
+        if let Some(joiner) = self.joiner.take() {
+            self.joiner = Some(joiner.styled(styles));
         } else {
-            self.joined = Some(Joiner::Styled {
+            self.joiner = Some(Joiner::Styled {
                 parent: None,
                 content: SequenceElem::new(vec![]),
                 styles,
@@ -175,10 +199,10 @@ impl<'a> Vm<'a, '_> {
 
     /// Applies a recipe to the current joining state.
     pub fn recipe(&mut self, recipe: Recipe) -> StrResult<()> {
-        if let Some(joiner) = self.joined.take() {
-            self.joined = Some(joiner.recipe(recipe));
+        if let Some(joiner) = self.joiner.take() {
+            self.joiner = Some(joiner.recipe(recipe));
         } else {
-            self.joined = Some(Joiner::Recipe {
+            self.joiner = Some(Joiner::Recipe {
                 parent: None,
                 content: SequenceElem::new(vec![]),
                 recipe: Box::new(recipe),
@@ -242,7 +266,7 @@ impl<'a> Vm<'a, '_> {
         engine: &mut Engine,
         instructions: &'b [Opcode],
         spans: &'b [Span],
-        iterator: Option<&mut dyn Iterator<Item = Value>>,
+        iterator: Option<&mut Iterable>,
         mut output: Option<Readable>,
         content: bool,
         looping: bool,
@@ -258,14 +282,14 @@ impl<'a> Vm<'a, '_> {
 
         std::mem::swap(&mut self.state, &mut state);
         std::mem::swap(&mut self.output, &mut output);
-        std::mem::swap(&mut self.joined, &mut joiner);
+        std::mem::swap(&mut self.joiner, &mut joiner);
         std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
         let out = run(engine, self, instructions, spans, iterator)?;
 
         std::mem::swap(&mut self.state, &mut state);
         std::mem::swap(&mut self.output, &mut output);
-        std::mem::swap(&mut self.joined, &mut joiner);
+        std::mem::swap(&mut self.joiner, &mut joiner);
         std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
         Ok(out)
@@ -277,7 +301,7 @@ pub fn run<'a: 'b, 'b, 'c>(
     vm: &mut Vm<'a, 'c>,
     instructions: &'b [Opcode],
     spans: &'b [Span],
-    mut iterator: Option<&mut dyn Iterator<Item = Value>>,
+    mut iterator: Option<&mut Iterable>,
 ) -> SourceResult<ControlFlow> {
     fn next<'a: 'b, 'b, 'c>(
         vm: &mut Vm<'a, 'c>,
@@ -341,9 +365,9 @@ pub fn run<'a: 'b, 'b, 'c>(
             Readable::Bool(b) => Some(Value::Bool(b)),
             _ => Some(vm.read(readable).clone()),
         }
-    } else if let Some(joined) = vm.joined.take() {
+    } else if let Some(joined) = vm.joiner.take() {
         Some(joined.collect(engine, vm.context)?)
-    } else if vm.state.is_display() {
+    } else if vm.state.is_display() && !vm.state.is_looping() {
         Some(Content::empty().into_value())
     } else {
         None

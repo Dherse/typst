@@ -2,15 +2,21 @@ use std::num::{NonZeroU16, NonZeroU32};
 
 use typst_syntax::Span;
 
+use super::interpreter::Iterable;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::Value;
 
 use super::operands::StringId;
 use super::operands::{
     AccessId, ClosureId, LabelId, ModuleId, PatternId, Pointer, Readable, SpanId,
     Writable,
 };
+
+pub enum ContentMode {
+    NotContent,
+    Sometimes,
+    Always,
+}
 
 /// Macro used to generate opcode related structures and functions.
 ///
@@ -110,7 +116,7 @@ macro_rules! opcodes {
                 span: Span,
                 vm: &mut crate::lang::interpreter::Vm,
                 engine: &mut Engine,
-                iterator: Option<&mut dyn Iterator<Item = Value>>
+                iterator: Option<&mut Iterable>
             ) -> SourceResult<()> {
                 vm.next();
 
@@ -351,6 +357,12 @@ opcodes! {
         access: AccessId,
     },
 
+    /// Observe the value in a `Tracked`.
+    Observe: observe_isr => {
+        /// The value to observe.
+        value: Readable,
+    },
+
     /// Creates a new [`Value::None`].
     None: none -> Writable => { },
 
@@ -482,15 +494,7 @@ opcodes! {
     /// Calls a function.
     Call: call -> Writable => {
         /// The closure to call.
-        closure: AccessId,
-        /// The arguments to call the closure with.
-        args: Readable,
-        /// Whether the call is done in a math context.
-        math: bool,
-        /// Whether the call contains a trailing comma.
-        trailing_comma: bool,
-        /// The span of the callee.
-        callee_span: SpanId,
+        access: AccessId,
     },
 
     /// Accesses a field.
@@ -519,7 +523,10 @@ opcodes! {
 
     /// Queries the next value of an iterator.
     /// Returns from the iterator scope if the iterator is exhausted.
-    Next: next -> Writable => { },
+    Next: next => {
+        /// The destructure pattern to apply.
+        pattern: PatternId,
+    },
 
     /// Continues a loop.
     Continue: continue_ => {},
@@ -683,6 +690,8 @@ opcodes! {
         base: Readable,
         /// The top supplement.
         top: Option<Readable>,
+        /// The top prime supplement.
+        primes: Option<Readable>,
         /// The bottom supplement.
         bottom: Option<Readable>,
     },

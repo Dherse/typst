@@ -41,7 +41,7 @@ pub enum EvalMode {
 }
 
 /// Evaluate a source file and return the resulting module.
-#[comemo::memoize]
+#[comemo::memoize()]
 #[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
     world: Tracked<dyn World + '_>,
@@ -135,7 +135,10 @@ pub fn eval_string(
             .compile_top_level(&mut compiler, &mut engine)?,
     }
 
-    let module = CompiledModule::new(compiler.finish_module(root.span(), "eval", vec![]));
+    let display = matches!(mode, EvalMode::Markup | EvalMode::Math);
+
+    let module =
+        CompiledModule::new(compiler.finish_module(root.span(), "eval", vec![], display));
 
     let context = Context::none();
     let output = run_module_as_eval(
@@ -156,7 +159,7 @@ pub fn eval_string(
 }
 
 /// Call the function in the context with the arguments.
-#[comemo::memoize]
+#[comemo::memoize(enabled = closure.inner.compiled.instructions.len() > 250)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
@@ -325,7 +328,7 @@ pub fn compile_module(
         .collect();
 
     drop(scopes);
-    Ok(CompiledModule::new(compiler.finish_module(root.span(), &*name, exports)))
+    Ok(CompiledModule::new(compiler.finish_module(root.span(), &*name, exports, true)))
 }
 
 fn run_closure(
@@ -377,7 +380,7 @@ where
     let num_pos_args = args.to_pos().len();
     let sink_size = num_pos_args.checked_sub(num_pos_params);
 
-    let mut vm = Vm::new(registers, compiled, context);
+    let mut vm = Vm::new(registers, compiled, context).with_display(compiled.display);
 
     // Write all default values.
     for default in compiled.defaults.iter() {

@@ -151,8 +151,9 @@
 
 --- array-bad-method-lvalue ---
 // Test bad lvalue.
-// Error: 2:3-2:14 cannot mutate a temporary value
 #let array = (1, 2, 3)
+// Error: 3-14 cannot mutate a temporary value
+// Hint: 3-14 try storing the value in a variable first
 #(array.len() = 4)
 
 --- array-unknown-method-lvalue ---

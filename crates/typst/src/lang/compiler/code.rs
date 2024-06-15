@@ -5,7 +5,7 @@ use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{unknown_variable, Value};
 use crate::lang::compiled::CompiledClosure;
-use crate::lang::compiler::{Access, CompileAccess};
+use crate::lang::compiler::CompileAccess;
 use crate::lang::operands::Readable;
 
 use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
@@ -93,6 +93,14 @@ impl Compile for ast::Expr<'_> {
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
+        // Check for observed nodes.
+        let span = self.span();
+        if span.id().and_then(|id| engine.tracer.inspected(id)) == Some(span) {
+            let value = self.compile_to_readable(compiler, engine)?;
+            compiler.copy(self.span(), value, output);
+            return Ok(());
+        }
+
         let span = self.span();
         let forbidden = |name: &str| {
             error!(span, "{} is only allowed directly in code and content blocks", name)
@@ -203,101 +211,109 @@ impl Compile for ast::Expr<'_> {
             error!(span, "{} is only allowed directly in code and content blocks", name)
         };
 
-        match self {
-            ast::Expr::Text(text) => text.compile_to_readable(compiler, engine),
-            ast::Expr::Space(space) => space.compile_to_readable(compiler, engine),
+        let out = match self {
+            ast::Expr::Text(text) => text.compile_to_readable(compiler, engine)?,
+            ast::Expr::Space(space) => space.compile_to_readable(compiler, engine)?,
             ast::Expr::Linebreak(linebreak) => {
-                linebreak.compile_to_readable(compiler, engine)
+                linebreak.compile_to_readable(compiler, engine)?
             }
             ast::Expr::Parbreak(parbreak) => {
-                parbreak.compile_to_readable(compiler, engine)
+                parbreak.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Escape(escape) => escape.compile_to_readable(compiler, engine),
+            ast::Expr::Escape(escape) => escape.compile_to_readable(compiler, engine)?,
             ast::Expr::Shorthand(shorthand) => {
-                shorthand.compile_to_readable(compiler, engine)
+                shorthand.compile_to_readable(compiler, engine)?
             }
             ast::Expr::SmartQuote(smart_quote) => {
-                smart_quote.compile_to_readable(compiler, engine)
+                smart_quote.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Strong(strong) => strong.compile_to_readable(compiler, engine),
-            ast::Expr::Emph(emph) => emph.compile_to_readable(compiler, engine),
-            ast::Expr::Raw(raw) => raw.compile_to_readable(compiler, engine),
-            ast::Expr::Link(link) => link.compile_to_readable(compiler, engine),
-            ast::Expr::Label(label) => label.compile_to_readable(compiler, engine),
-            ast::Expr::Ref(ref_) => ref_.compile_to_readable(compiler, engine),
-            ast::Expr::Heading(heading) => heading.compile_to_readable(compiler, engine),
-            ast::Expr::List(list) => list.compile_to_readable(compiler, engine),
-            ast::Expr::Enum(enum_) => enum_.compile_to_readable(compiler, engine),
-            ast::Expr::Term(term) => term.compile_to_readable(compiler, engine),
+            ast::Expr::Strong(strong) => strong.compile_to_readable(compiler, engine)?,
+            ast::Expr::Emph(emph) => emph.compile_to_readable(compiler, engine)?,
+            ast::Expr::Raw(raw) => raw.compile_to_readable(compiler, engine)?,
+            ast::Expr::Link(link) => link.compile_to_readable(compiler, engine)?,
+            ast::Expr::Label(label) => label.compile_to_readable(compiler, engine)?,
+            ast::Expr::Ref(ref_) => ref_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Heading(heading) => heading.compile_to_readable(compiler, engine)?,
+            ast::Expr::List(list) => list.compile_to_readable(compiler, engine)?,
+            ast::Expr::Enum(enum_) => enum_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Term(term) => term.compile_to_readable(compiler, engine)?,
             ast::Expr::Equation(equation) => {
-                equation.compile_to_readable(compiler, engine)
+                equation.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Math(math) => math.compile_to_readable(compiler, engine),
+            ast::Expr::Math(math) => math.compile_to_readable(compiler, engine)?,
             ast::Expr::MathIdent(math_ident) => {
-                math_ident.compile_to_readable(compiler, engine)
+                math_ident.compile_to_readable(compiler, engine)?
             }
             ast::Expr::MathAlignPoint(math_align_point) => {
-                math_align_point.compile_to_readable(compiler, engine)
+                math_align_point.compile_to_readable(compiler, engine)?
             }
             ast::Expr::MathDelimited(math_delimited) => {
-                math_delimited.compile_to_readable(compiler, engine)
+                math_delimited.compile_to_readable(compiler, engine)?
             }
             ast::Expr::MathAttach(math_attach) => {
-                math_attach.compile_to_readable(compiler, engine)
+                math_attach.compile_to_readable(compiler, engine)?
             }
             ast::Expr::MathPrimes(math_primes) => {
-                math_primes.compile_to_readable(compiler, engine)
+                math_primes.compile_to_readable(compiler, engine)?
             }
             ast::Expr::MathFrac(math_frac) => {
-                math_frac.compile_to_readable(compiler, engine)
+                math_frac.compile_to_readable(compiler, engine)?
             }
             ast::Expr::MathRoot(math_root) => {
-                math_root.compile_to_readable(compiler, engine)
+                math_root.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Ident(ident) => ident.compile_to_readable(compiler, engine),
-            ast::Expr::None(none_) => none_.compile_to_readable(compiler, engine),
-            ast::Expr::Auto(auto) => auto.compile_to_readable(compiler, engine),
-            ast::Expr::Bool(bool_) => bool_.compile_to_readable(compiler, engine),
-            ast::Expr::Int(int_) => int_.compile_to_readable(compiler, engine),
-            ast::Expr::Float(float_) => float_.compile_to_readable(compiler, engine),
+            ast::Expr::Ident(ident) => ident.compile_to_readable(compiler, engine)?,
+            ast::Expr::None(none_) => none_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Auto(auto) => auto.compile_to_readable(compiler, engine)?,
+            ast::Expr::Bool(bool_) => bool_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Int(int_) => int_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Float(float_) => float_.compile_to_readable(compiler, engine)?,
             ast::Expr::Numeric(numeric_) => {
-                numeric_.compile_to_readable(compiler, engine)
+                numeric_.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Str(str_) => str_.compile_to_readable(compiler, engine),
-            ast::Expr::Code(code_) => code_.compile_to_readable(compiler, engine),
+            ast::Expr::Str(str_) => str_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Code(code_) => code_.compile_to_readable(compiler, engine)?,
             ast::Expr::Content(content_) => {
-                content_.compile_to_readable(compiler, engine)
+                content_.compile_to_readable(compiler, engine)?
             }
             ast::Expr::Parenthesized(parenthesized_) => {
-                parenthesized_.compile_to_readable(compiler, engine)
+                parenthesized_.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Array(array_) => array_.compile_to_readable(compiler, engine),
-            ast::Expr::Dict(dict_) => dict_.compile_to_readable(compiler, engine),
-            ast::Expr::Unary(unary) => unary.compile_to_readable(compiler, engine),
-            ast::Expr::Binary(binary) => binary.compile_to_readable(compiler, engine),
-            ast::Expr::FieldAccess(field) => field.compile_to_readable(compiler, engine),
-            ast::Expr::FuncCall(call) => call.compile_to_readable(compiler, engine),
-            ast::Expr::Closure(closure) => closure.compile_to_readable(compiler, engine),
-            ast::Expr::Let(let_) => let_.compile_to_readable(compiler, engine),
+            ast::Expr::Array(array_) => array_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Dict(dict_) => dict_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Unary(unary) => unary.compile_to_readable(compiler, engine)?,
+            ast::Expr::Binary(binary) => binary.compile_to_readable(compiler, engine)?,
+            ast::Expr::FieldAccess(field) => field.compile_to_readable(compiler, engine)?,
+            ast::Expr::FuncCall(call) => call.compile_to_readable(compiler, engine)?,
+            ast::Expr::Closure(closure) => closure.compile_to_readable(compiler, engine)?,
+            ast::Expr::Let(let_) => let_.compile_to_readable(compiler, engine)?,
             ast::Expr::DestructAssign(destructure) => {
-                destructure.compile_to_readable(compiler, engine)
+                destructure.compile_to_readable(compiler, engine)?
             }
             ast::Expr::Set(_) => bail!(forbidden("set")),
             ast::Expr::Show(_) => bail!(forbidden("show")),
-            ast::Expr::Conditional(if_) => if_.compile_to_readable(compiler, engine),
-            ast::Expr::While(while_) => while_.compile_to_readable(compiler, engine),
-            ast::Expr::For(for_) => for_.compile_to_readable(compiler, engine),
-            ast::Expr::Break(break_) => break_.compile_to_readable(compiler, engine),
+            ast::Expr::Conditional(if_) => if_.compile_to_readable(compiler, engine)?,
+            ast::Expr::While(while_) => while_.compile_to_readable(compiler, engine)?,
+            ast::Expr::For(for_) => for_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Break(break_) => break_.compile_to_readable(compiler, engine)?,
             ast::Expr::Continue(continue_) => {
-                continue_.compile_to_readable(compiler, engine)
+                continue_.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Return(return_) => return_.compile_to_readable(compiler, engine),
-            ast::Expr::Import(import) => import.compile_to_readable(compiler, engine),
-            ast::Expr::Include(include) => include.compile_to_readable(compiler, engine),
+            ast::Expr::Return(return_) => return_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Import(import) => import.compile_to_readable(compiler, engine)?,
+            ast::Expr::Include(include) => include.compile_to_readable(compiler, engine)?,
             ast::Expr::Contextual(contextual) => {
-                contextual.compile_to_readable(compiler, engine)
+                contextual.compile_to_readable(compiler, engine)?
             }
+        };
+
+        // Check for observed nodes.
+        let span = self.span();
+        if span.id().and_then(|id| engine.tracer.inspected(id)) == Some(span) {
+            compiler.observe(self.span(), out.clone());
         }
+
+        Ok(out)
     }
 }
 
@@ -614,18 +630,12 @@ impl Compile for ast::FieldAccess<'_> {
         output: WritableGuard,
     ) -> SourceResult<()> {
         let pattern = self.target().access(compiler, engine, false)?;
-        let index = compiler.access(pattern);
-
-        let access = Access::Chained(
-            self.target().span(),
-            self.field().span(),
-            index,
-            PicoStr::new(self.field().get()),
-        );
+        let access =
+            pattern.chained(self.field().span(), PicoStr::new(self.field().get()));
 
         // If we can resolve the access to a constant, we can copy it directly.
-        if let Some(value) = access.resolve(compiler)? {
-            let const_id = compiler.const_(value);
+        if let Some(value) = access.resolve(compiler).at(self.span())? {
+            let const_id = compiler.const_(value.clone());
             compiler.copy(self.span(), const_id, output);
 
             return Ok(());
@@ -649,18 +659,22 @@ impl Compile for ast::Contextual<'_> {
         // Compile the contextual as if it was a closure.
         // Since it doesn't have any arguments, we don't need to do any
         // processing of arguments and default values.
-        let mut closure_compiler = Compiler::new_closure(compiler, None);
+        let mut closure_compiler =
+            Compiler::new_closure(compiler, None).with_contextual(true);
 
         // Compile the body of the contextual.
+        let mut display = false;
         match self.body() {
             ast::Expr::Code(code) => {
                 code.body().compile_top_level(&mut closure_compiler, engine)?;
             }
             ast::Expr::Content(content) => {
                 content.body().compile_top_level(&mut closure_compiler, engine)?;
+                display = true;
             }
             other => {
-                other.compile(&mut closure_compiler, engine, WritableGuard::Joined)?
+                other.compile(&mut closure_compiler, engine, WritableGuard::Joined)?;
+                display = other.is_display();
             }
         }
 
@@ -668,7 +682,8 @@ impl Compile for ast::Contextual<'_> {
         closure_compiler.flow();
 
         // Collect the compiled closure.
-        let closure = closure_compiler.finish_closure(self.span(), vec![], None)?;
+        let closure =
+            closure_compiler.finish_closure(self.span(), vec![], None, display)?;
 
         // Get the closure ID.
         let compiled = CompiledClosure::new(closure, &*compiler);

@@ -1,6 +1,6 @@
 //! Handles special built-in methods on values.
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult};
 use crate::foundations::{Args, Array, Dict, Str, Type, Value};
 use crate::syntax::Span;
 
@@ -34,9 +34,10 @@ pub(crate) fn call_method_mut(
     method: &str,
     mut args: Args,
     span: Span,
+    name_span: Span,
 ) -> SourceResult<Value> {
     let ty = value.ty();
-    let missing = || Err(missing_method(ty, method)).at(span);
+    let missing = || missing_method(ty, method).at(name_span);
     let mut output = Value::None;
 
     match value {
@@ -76,9 +77,10 @@ pub(crate) fn call_method_access<'a>(
     method: &str,
     mut args: Args,
     span: Span,
+    name_span: Span,
 ) -> SourceResult<&'a mut Value> {
     let ty = value.ty();
-    let missing = || Err(missing_method(ty, method)).at(span);
+    let missing = || missing_method(ty, method).at(name_span);
 
     let slot = match value {
         Value::Array(array) => match method {
@@ -106,6 +108,6 @@ pub(crate) fn call_method_access<'a>(
 
 /// The missing method error message.
 #[cold]
-fn missing_method(ty: Type, method: &str) -> String {
-    format!("type {ty} has no method `{method}`")
+pub fn missing_method<T>(ty: Type, method: &str) -> HintedStrResult<T> {
+    bail!("type {ty} has no method `{method}`")
 }

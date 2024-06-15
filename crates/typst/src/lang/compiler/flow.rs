@@ -2,12 +2,10 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::lang::compiler::{PatternItem, PatternKind};
 use crate::lang::operands::Readable;
 
 use super::{
-    Access, Compile, CompileTopLevel, Compiler, PatternCompile, ReadableGuard,
-    WritableGuard,
+    Compile, CompileTopLevel, Compiler, PatternCompile, ReadableGuard, WritableGuard,
 };
 
 impl Compile for ast::Conditional<'_> {
@@ -25,7 +23,7 @@ impl Compile for ast::Conditional<'_> {
         let end = compiler.marker();
 
         // Create the conditonal jump
-        compiler.jump_if(self.span(), condition.clone(), if_);
+        compiler.jump_if(self.condition().span(), condition.clone(), if_);
 
         // Compile the else body
         if let Some(else_body) = self.else_body() {
@@ -68,7 +66,7 @@ impl Compile for ast::WhileLoop<'_> {
                 let condition = self.condition().compile_to_readable(compiler, engine)?;
 
                 // Create the conditonal jump
-                compiler.jump_if_not(self.span(), condition, end);
+                compiler.jump_if_not(self.condition().span(), condition, end);
 
                 // Mark the beginning of the iteration
                 compiler.begin_iter(self.span());
@@ -118,22 +116,8 @@ impl Compile for ast::ForLoop<'_> {
             |compiler, engine| {
                 let mut is_content = false;
                 let pattern = self.pattern().compile_pattern(compiler, engine, true)?;
-                if let PatternKind::Single(PatternItem::Simple(span, access, _)) =
-                    &pattern.kind
-                {
-                    let Access::Register(writable) = compiler.get_access(access).unwrap()
-                    else {
-                        bail!(*span, "cannot destructure into a non-writable access");
-                    };
-
-                    compiler.next(*span, writable.clone());
-                } else {
-                    let i = compiler.allocate();
-                    compiler.next(self.iterable().span(), i.clone());
-
-                    let pattern_id = compiler.pattern(pattern);
-                    compiler.destructure(self.pattern().span(), i, pattern_id);
-                }
+                let pattern_id = compiler.pattern(pattern);
+                compiler.next(self.iterable().span(), pattern_id);
 
                 // Mark the beginning of the iteration
                 compiler.begin_iter(self.iterable().span());
