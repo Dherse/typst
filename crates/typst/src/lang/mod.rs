@@ -41,7 +41,10 @@ pub enum EvalMode {
 }
 
 /// Evaluate a source file and return the resulting module.
-#[comemo::memoize()]
+#[comemo::memoize(
+    // We only memoize if the source is not being traced.
+    enabled = tracer.inspected(source.id()).is_none(),
+)]
 #[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
     world: Tracked<dyn World + '_>,
@@ -159,7 +162,11 @@ pub fn eval_string(
 }
 
 /// Call the function in the context with the arguments.
-#[comemo::memoize(enabled = closure.inner.compiled.instructions.len() > 250)]
+#[comemo::memoize(
+    // Memoize only if the closure is large and if it is not being traced.
+    enabled = closure.inner.compiled.instructions.len() > 250 &&
+        closure.inner.compiled.span.id().and_then(|id| tracer.inspected(id)).is_none(),
+)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
@@ -372,7 +379,7 @@ where
         .inner
         .params
         .iter()
-        .filter(|(_, p)| matches!(p, Param::Pos(_)))
+        .filter(|p| matches!(p, Param::Pos { .. }))
         .count();
 
     let inner = &**closure.inner;
@@ -400,28 +407,21 @@ where
 
     // Write all of the arguments to the registers.
     let mut sink = None;
-    for (target, arg) in &inner.params {
+    for arg in &inner.params {
         match arg {
-            Param::Pos(name) => {
-                if let Some(target) = target {
-                    vm.write_one(*target, args.expect::<Value>(name)?)
-                        .at(compiled.span)?;
+            Param::Pos { name, target } => {
+                vm.write_one(*target, args.expect::<Value>(name)?).at(compiled.span)?;
+            }
+            Param::Named { name, default, target } => {
+                if let Some(value) = args.named::<Value>(name)? {
+                    vm.write_one(*target, value).at(compiled.span)?;
+                } else if let Some(default) = default {
+                    vm.write_borrowed(*target, default);
+                } else {
+                    unreachable!("named arguments should always have a default value");
                 }
             }
-            Param::Named { name, default } => {
-                if let Some(target) = target {
-                    if let Some(value) = args.named::<Value>(name)? {
-                        vm.write_one(*target, value).at(compiled.span)?;
-                    } else if let Some(default) = default {
-                        vm.write_borrowed(*target, default);
-                    } else {
-                        unreachable!(
-                            "named arguments should always have a default value"
-                        );
-                    }
-                }
-            }
-            Param::Sink(span, _) => {
+            Param::Sink { span, target } => {
                 sink = Some(*target);
                 if let Some(target) = target {
                     let mut arguments = Args::new(*span, std::iter::empty::<Value>());
@@ -453,8 +453,9 @@ where
     // Ensure all arguments have been used.
     args.finish()?;
 
-    match run(engine, &mut vm, &compiled.instructions, &compiled.spans, None)? {
+    let out = match run(engine, &mut vm, &compiled.instructions, &compiled.spans, None)? {
         ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
         _ => bail!(compiled.span, "closure did not return a value"),
-    }
+    };
+    out
 }

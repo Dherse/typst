@@ -263,7 +263,7 @@ This is never reached.
 #test(chap1.b, "Klaus")
 
 --- import-nested-invalid-type ---
-// Error: 19-21 expected module, function, or type, found float
+// Error: 14-31 cannot find `calc.pi.something` in module `global`
 #import std: calc.pi.something
 
 --- import-incomplete ---

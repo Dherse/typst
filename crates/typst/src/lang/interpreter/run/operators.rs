@@ -5,7 +5,8 @@ use crate::engine::Engine;
 use crate::foundations::Value;
 use crate::lang::interpreter::Vm;
 use crate::lang::opcodes::{
-    Add, And, Auto, CopyIsr, Div, Eq, Geq, Gt, In, Leq, Lt, Mul, Neg, Neq, None, Not, NotIn, Observe, Or, Pos, ReadAccess, Sub
+    Add, And, Auto, CopyIsr, Div, Eq, Geq, Gt, In, Leq, Lt, Mul, Neg, Neq, None, Not,
+    NotIn, Observe, Or, Pos, ReadAccess, Sub,
 };
 use crate::lang::ops;
 
@@ -277,7 +278,9 @@ impl SimpleRun for Observe {
         let value = vm.read(self.value);
 
         // Observe the value.
-        engine.tracer.value(value.clone(), vm.context.styles().ok().map(|s| s.to_map()));
+        engine
+            .tracer
+            .value(value.clone(), vm.context.styles().ok().map(|s| s.to_map()));
 
         Ok(())
     }

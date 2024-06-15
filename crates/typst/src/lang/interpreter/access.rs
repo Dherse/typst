@@ -11,8 +11,8 @@ use crate::diag::{
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    call_method_access, call_method_mut, missing_method, Arg, Args,
-    Bytes, Content, Context, Func, IntoValue, NativeElement, Str, Value,
+    call_method_access, call_method_mut, missing_method, Arg, Args, Bytes, Content,
+    Context, Func, IntoValue, NativeElement, Str, Value,
 };
 use crate::lang::compiled::{CompiledAccess, CompiledAccessRoot, CompiledAccessSegment};
 use crate::lang::interpreter::methods::ValueAccessor;

@@ -3,6 +3,7 @@ use typst_syntax::ast::{self, AstNode};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 
+use super::closure::compile_closure;
 use super::{
     Compile, Compiler, PatternCompile, PatternItem, PatternKind, ReadableGuard,
     WritableGuard,
@@ -30,7 +31,7 @@ impl Compile for ast::LetBinding<'_> {
                 compile_normal(compiler, engine, self, &pattern)?;
             }
             ast::LetBindingKind::Closure(closure) => {
-                compile_closure(compiler, engine, self, &closure)?;
+                compile_let_closure(compiler, engine, self, &closure)?;
             }
         }
 
@@ -113,32 +114,35 @@ fn compile_normal(
     Ok(())
 }
 
-fn compile_closure(
+fn compile_let_closure(
     compiler: &mut Compiler,
     engine: &mut Engine,
     binding: &ast::LetBinding<'_>,
     closure_name: &ast::Ident<'_>,
 ) -> SourceResult<()> {
     let closure_span = closure_name.span();
-    let closure_name = closure_name.as_str();
+    let closure_name = closure_name.get();
 
     // If there's no initializer, we can't create the closure.
     let Some(init) = binding.init() else {
         bail!(binding.span(), "closure declaration requires an initializer");
     };
 
+    let ast::Expr::Closure(closure) = init else {
+        bail!(init.span(), "expected closure expression");
+    };
+
     // We create the local.
     let local = compiler.declare(closure_span, closure_name);
 
-    // We swap the names
-    let mut name = Some(closure_name.into());
-    std::mem::swap(&mut name, &mut compiler.name);
-
-    // We compile the initializer.
-    init.compile(compiler, engine, local.clone().into())?;
-
-    // We swap the names back.
-    std::mem::swap(&mut name, &mut compiler.name);
-
-    Ok(())
+    // Compile the closure.
+    compile_closure(
+        compiler,
+        engine,
+        closure_span,
+        closure.params(),
+        closure.body(),
+        local.into(),
+        Some(closure_name),
+    )
 }

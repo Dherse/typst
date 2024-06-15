@@ -186,7 +186,7 @@ impl ModuleInclude for ast::FieldAccess<'_> {
         let access = self.access(compiler, engine, false)?;
 
         // If we can resolve it as a constant, we can try and import it.
-        let Some(resolved) = access.resolve(compiler).at(self.span())? else {
+        let Some(resolved) = access.resolve(compiler) else {
             // Otherwise we default to the dynamic case.
             let access_id = compiler.access(access);
             compiler.access_isr(self.span(), access_id, output.clone());
@@ -197,7 +197,7 @@ impl ModuleInclude for ast::FieldAccess<'_> {
             return Ok(());
         };
 
-        include_value(compiler, engine, resolved.clone(), output, self.span())
+        include_value(compiler, engine, resolved.into_owned(), output, self.span())
     }
 }
 

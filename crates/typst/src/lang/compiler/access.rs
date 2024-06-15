@@ -1,15 +1,14 @@
+use std::borrow::Cow;
+
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
 
 use super::call::ArgsCompile;
 use super::{Compile, Compiler, IntoCompiledValue, ReadableGuard, RegisterGuard};
-use crate::diag::{bail, error, At, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{bail, error, At, HintedString, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    cannot_mutate_constant, unknown_variable, Func, IntoValue, Module, Type, Value,
-};
+use crate::foundations::{cannot_mutate_constant, unknown_variable, Value};
 use crate::lang::compiled::{CompiledAccess, CompiledAccessRoot, CompiledAccessSegment};
-use crate::lang::operands::{AccessId, Global};
 use crate::utils::PicoStr;
 
 #[derive(Clone, Hash, PartialEq)]
@@ -92,8 +91,44 @@ impl Access {
         self
     }
 
-    pub fn resolve(&self, compiler: &Compiler) -> HintedStrResult<Option<&Value>> {
-        Ok(None)
+    pub fn resolve<'a>(&self, compiler: &'a Compiler) -> Option<Cow<'a, Value>> {
+        let root = self.root.resolve(compiler)?;
+
+        let mut value = root;
+        for segment in &self.tail {
+            value = segment.resolve(&value).map(Cow::Owned)?;
+        }
+
+        Some(value)
+    }
+}
+
+impl AccessRoot {
+    pub fn resolve<'a>(&self, compiler: &'a Compiler) -> Option<Cow<'a, Value>> {
+        match self {
+            AccessRoot::Register(reg) => {
+                let var = compiler.resolve_var(reg)?;
+                if var.constant {
+                    compiler.resolve_default(&var.register).map(Cow::Owned)
+                } else {
+                    None
+                }
+            }
+            AccessRoot::Readable(read) => compiler.resolve(read.clone()),
+            AccessRoot::Call { .. } => None,
+        }
+    }
+}
+
+impl AccessTail {
+    pub fn resolve<'a>(&self, parent: &Value) -> Option<Value> {
+        match self {
+            AccessTail::Field { name, .. } => {
+                let name = name.resolve();
+                parent.field(name).ok()
+            }
+            AccessTail::Method { .. } => None,
+        }
     }
 }
 

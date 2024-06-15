@@ -75,7 +75,7 @@
         .children
         .filter(v => v != [ ])
         .split[+]
-        .map(xs => xs.fold(1, (prod, v) => prod * f(v)))
+        .map(xs => xs.fold(1, (prod, v1) => prod * f(v1)))
         .fold(0, (sum, v) => sum + v)
     }
   }

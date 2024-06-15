@@ -2,7 +2,7 @@ use std::num::{NonZeroU16, NonZeroU32};
 
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{error, SourceResult};
+use crate::diag::{error, warning, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Content, Label, NativeElement, Value};
 use crate::model::{LinkElem, ParbreakElem, RefElem};
@@ -253,7 +253,17 @@ impl Compile for ast::Strong<'_> {
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
-        let body = self.body().compile_to_readable(compiler, engine)?;
+        let body = self.body();
+        if body.exprs().next().is_none() {
+            engine
+                .tracer
+                .warn(warning!(
+                    self.span(), "no text within stars";
+                    hint: "using multiple consecutive stars (e.g. **) has no additional effect",
+                ));
+        }
+
+        let body = body.compile_to_readable(compiler, engine)?;
         compiler.strong(self.span(), body, output);
 
         Ok(())
@@ -267,7 +277,17 @@ impl Compile for ast::Emph<'_> {
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
-        let body = self.body().compile_to_readable(compiler, engine)?;
+        let body = self.body();
+        if body.exprs().next().is_none() {
+            engine
+                .tracer
+                .warn(warning!(
+                    self.span(), "no text within underscores";
+                    hint: "using multiple consecutive underscores (e.g. __) has no additional effect"
+                ));
+        }
+
+        let body = body.compile_to_readable(compiler, engine)?;
         compiler.emph(self.span(), body, output);
 
         Ok(())

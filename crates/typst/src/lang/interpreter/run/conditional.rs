@@ -123,7 +123,7 @@ impl SimpleRun for JumpIfNot {
 
 impl SimpleRun for BeginIter {
     fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
-        if vm.iter() > 100_000_000 {
+        if vm.iter() > 1_000_000 {
             bail!(span, "loop seems to be infinite");
         }
 

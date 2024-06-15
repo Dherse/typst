@@ -233,7 +233,9 @@ impl Compile for ast::Expr<'_> {
             ast::Expr::Link(link) => link.compile_to_readable(compiler, engine)?,
             ast::Expr::Label(label) => label.compile_to_readable(compiler, engine)?,
             ast::Expr::Ref(ref_) => ref_.compile_to_readable(compiler, engine)?,
-            ast::Expr::Heading(heading) => heading.compile_to_readable(compiler, engine)?,
+            ast::Expr::Heading(heading) => {
+                heading.compile_to_readable(compiler, engine)?
+            }
             ast::Expr::List(list) => list.compile_to_readable(compiler, engine)?,
             ast::Expr::Enum(enum_) => enum_.compile_to_readable(compiler, engine)?,
             ast::Expr::Term(term) => term.compile_to_readable(compiler, engine)?,
@@ -283,9 +285,13 @@ impl Compile for ast::Expr<'_> {
             ast::Expr::Dict(dict_) => dict_.compile_to_readable(compiler, engine)?,
             ast::Expr::Unary(unary) => unary.compile_to_readable(compiler, engine)?,
             ast::Expr::Binary(binary) => binary.compile_to_readable(compiler, engine)?,
-            ast::Expr::FieldAccess(field) => field.compile_to_readable(compiler, engine)?,
+            ast::Expr::FieldAccess(field) => {
+                field.compile_to_readable(compiler, engine)?
+            }
             ast::Expr::FuncCall(call) => call.compile_to_readable(compiler, engine)?,
-            ast::Expr::Closure(closure) => closure.compile_to_readable(compiler, engine)?,
+            ast::Expr::Closure(closure) => {
+                closure.compile_to_readable(compiler, engine)?
+            }
             ast::Expr::Let(let_) => let_.compile_to_readable(compiler, engine)?,
             ast::Expr::DestructAssign(destructure) => {
                 destructure.compile_to_readable(compiler, engine)?
@@ -299,9 +305,13 @@ impl Compile for ast::Expr<'_> {
             ast::Expr::Continue(continue_) => {
                 continue_.compile_to_readable(compiler, engine)?
             }
-            ast::Expr::Return(return_) => return_.compile_to_readable(compiler, engine)?,
+            ast::Expr::Return(return_) => {
+                return_.compile_to_readable(compiler, engine)?
+            }
             ast::Expr::Import(import) => import.compile_to_readable(compiler, engine)?,
-            ast::Expr::Include(include) => include.compile_to_readable(compiler, engine)?,
+            ast::Expr::Include(include) => {
+                include.compile_to_readable(compiler, engine)?
+            }
             ast::Expr::Contextual(contextual) => {
                 contextual.compile_to_readable(compiler, engine)?
             }
@@ -634,8 +644,8 @@ impl Compile for ast::FieldAccess<'_> {
             pattern.chained(self.field().span(), PicoStr::new(self.field().get()));
 
         // If we can resolve the access to a constant, we can copy it directly.
-        if let Some(value) = access.resolve(compiler).at(self.span())? {
-            let const_id = compiler.const_(value.clone());
+        if let Some(value) = access.resolve(compiler) {
+            let const_id = compiler.const_(value.into_owned());
             compiler.copy(self.span(), const_id, output);
 
             return Ok(());

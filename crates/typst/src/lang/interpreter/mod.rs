@@ -231,19 +231,17 @@ impl<'a> Vm<'a, '_> {
         for param in closure.params.iter().flat_map(|p| p.iter()) {
             match param {
                 CompiledParam::Pos(target, pos) => {
-                    params.push((Some(*target), Param::Pos(pos.resolve())))
+                    params.push(Param::Pos { name: pos.resolve(), target: *target });
                 }
                 CompiledParam::Named { target, name, default, .. } => {
-                    params.push((
-                        Some(*target),
-                        Param::Named {
-                            name: name.resolve(),
-                            default: self.read(*default).cloned(),
-                        },
-                    ));
+                    params.push(Param::Named {
+                        name: name.resolve(),
+                        default: self.read(*default).cloned(),
+                        target: *target,
+                    });
                 }
-                CompiledParam::Sink(span, target, name) => {
-                    params.push((*target, Param::Sink(*span, name.resolve())));
+                CompiledParam::Sink(span, target, _) => {
+                    params.push(Param::Sink { span: *span, target: *target });
                 }
             }
         }

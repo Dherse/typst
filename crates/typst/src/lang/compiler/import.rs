@@ -271,7 +271,7 @@ impl ModuleLoad for ast::FieldAccess<'_> {
         let access = self.access(compiler, engine, false)?;
 
         // If we can resolve it as a constant, we can try and import it.
-        let Some(resolved) = access.resolve(compiler).at(self.span())? else {
+        let Some(resolved) = access.resolve(compiler) else {
             // Otherwise we default to the dynamic case.
             let id = compiler.access(access);
 
