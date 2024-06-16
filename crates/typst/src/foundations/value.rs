@@ -234,6 +234,11 @@ impl Value {
     pub fn is_plugin(&self) -> bool {
         matches!(self, Self::Plugin(_))
     }
+
+    /// Returns `true` if the value is content.
+    pub fn is_content(&self) -> bool {
+        matches!(self, Self::Content(_))
+    }
 }
 
 impl Debug for Value {

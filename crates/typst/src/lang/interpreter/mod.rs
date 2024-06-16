@@ -14,9 +14,7 @@ use typst_syntax::Span;
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    Content, Context, IntoValue, Recipe, SequenceElem, Styles, Value,
-};
+use crate::foundations::{Content, Context, IntoValue, Recipe, Styles, Value};
 use crate::lang::closure::Param;
 use crate::lang::compiled::CompiledParam;
 
@@ -40,7 +38,7 @@ pub struct Vm<'a, 'b> {
     /// The current instruction pointer.
     instruction_pointer: usize,
     /// The joined values.
-    joiner: Option<Joiner>,
+    joiner: Joiner,
     /// The registers.
     registers: &'b mut [Cow<'a, Value>],
     /// The code being executed.
@@ -62,7 +60,7 @@ impl<'a, 'b> Vm<'a, 'b> {
             state: State::empty(),
             output: None,
             instruction_pointer: 0,
-            joiner: None,
+            joiner: Joiner::default(),
             registers,
             code,
             iterations: 0,
@@ -75,6 +73,7 @@ impl<'a> Vm<'a, '_> {
     /// Enable or disable displaying the output.
     pub fn with_display(mut self, display: bool) -> Self {
         self.state.set_display(display);
+        self.joiner.set_display(display);
         self
     }
 
@@ -167,48 +166,19 @@ impl<'a> Vm<'a, '_> {
     /// Join a value to the current joining state.
     pub fn join(&mut self, value: impl IntoValue) -> StrResult<()> {
         let value = value.into_value();
-
-        if let Some(joiner) = self.joiner.take() {
-            self.joiner = Some(joiner.join(value)?);
-        } else if self.state.is_display() && matches!(value, Value::Label(_)) {
-            // Do nothing if the body only contains a label.
-        } else if self.state.is_display() {
-            self.joiner = Some(Joiner::Display(SequenceElem::new(vec![value.display()])));
-        } else {
-            self.joiner = Some(Joiner::Value(value));
-        }
+        self.joiner.join(value)?;
 
         Ok(())
     }
 
     /// Applies a styling to the current joining state.
-    pub fn styled(&mut self, styles: Styles) -> StrResult<()> {
-        if let Some(joiner) = self.joiner.take() {
-            self.joiner = Some(joiner.styled(styles));
-        } else {
-            self.joiner = Some(Joiner::Styled {
-                parent: None,
-                content: SequenceElem::new(vec![]),
-                styles,
-            });
-        }
-
-        Ok(())
+    pub fn styled(&mut self, styles: Styles) {
+        self.joiner.styled(styles);
     }
 
     /// Applies a recipe to the current joining state.
-    pub fn recipe(&mut self, recipe: Recipe) -> StrResult<()> {
-        if let Some(joiner) = self.joiner.take() {
-            self.joiner = Some(joiner.recipe(recipe));
-        } else {
-            self.joiner = Some(Joiner::Recipe {
-                parent: None,
-                content: SequenceElem::new(vec![]),
-                recipe: Box::new(recipe),
-            });
-        }
-
-        Ok(())
+    pub fn recipe(&mut self, recipe: Recipe) {
+        self.joiner.recipe(recipe);
     }
 
     /// Instantiate a closure.
@@ -274,7 +244,7 @@ impl<'a> Vm<'a, '_> {
         // current scope is looping for control flow purposes.
         let mut state = State::empty().loop_(looping).display(content);
 
-        let mut joiner = None;
+        let mut joiner = Joiner::default().with_display(content);
         let mut instruction_pointer = 0;
 
         std::mem::swap(&mut self.state, &mut state);
@@ -362,8 +332,8 @@ pub fn run<'a: 'b, 'b, 'c>(
             Readable::Bool(b) => Some(Value::Bool(b)),
             _ => Some(vm.read(readable).clone()),
         }
-    } else if let Some(joined) = vm.joiner.take() {
-        Some(joined.collect(engine, vm.context)?)
+    } else if !vm.joiner.is_empty() {
+        Some(std::mem::take(&mut vm.joiner).collect(engine, vm.context)?)
     } else if vm.state.is_display() && !vm.state.is_looping() {
         Some(Content::empty().into_value())
     } else {

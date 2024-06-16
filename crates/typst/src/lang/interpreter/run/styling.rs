@@ -52,7 +52,7 @@ impl SimpleRun for Set {
 
         // Build the rule and apply it.
         let set_rule = target.set(engine, args)?.spanned(span);
-        vm.styled(set_rule).at(span)?;
+        vm.styled(set_rule);
 
         Ok(())
     }
@@ -78,7 +78,7 @@ impl SimpleRun for Show {
         };
 
         // Write the value to the output.
-        vm.recipe(show_rule).at(span)?;
+        vm.recipe(show_rule);
 
         Ok(())
     }
@@ -141,7 +141,7 @@ impl SimpleRun for ShowSet {
         };
 
         // Write the value to the output.
-        vm.recipe(show_rule).at(span)?;
+        vm.recipe(show_rule);
 
         Ok(())
     }

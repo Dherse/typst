@@ -77,8 +77,8 @@ impl SimpleRun for Heading {
         // Make the value into a heading.
         let mut value = HeadingElem::new(value.clone().cast().at(span)?);
 
-        // Set the level of the heading.
-        value.push_level(Smart::Custom(level.into()));
+        // Set the depth of the heading.
+        value.push_depth(level.into());
 
         // Write the value to the output.
         vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
