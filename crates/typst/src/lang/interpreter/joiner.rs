@@ -1,4 +1,5 @@
 use comemo::Tracked;
+use smallvec::SmallVec;
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
@@ -12,7 +13,7 @@ use crate::lang::ops;
 /// This behaves like a state machine that can be used to join values together.
 #[derive(Default, Debug, Clone)]
 pub struct Joiner {
-    segments: Vec<Segment>,
+    segments: SmallVec<[Segment; 5]>,
     is_display: bool,
 }
 
