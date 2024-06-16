@@ -4,6 +4,7 @@ use comemo::Tracked;
 use ecow::eco_format;
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
+use typst_utils::pico;
 
 use crate::diag::{
     bail, error, At, Hint, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint,
@@ -327,7 +328,9 @@ fn call_method_immutable(
             "first" => return array.first().at(span),
             "last" => return array.last().at(span),
             "at" => {
-                return array.at(args.expect("index")?, args.named("default")?).at(span)
+                return array
+                    .at(args.expect(pico!("index"))?, args.named(pico!("default"))?)
+                    .at(span)
             }
             _ => (),
         }
@@ -336,7 +339,11 @@ fn call_method_immutable(
     // Dict methods.
     if let Value::Dict(dict) = value {
         match method {
-            "at" => return dict.at(args.expect("key")?, args.named("default")?).at(span),
+            "at" => {
+                return dict
+                    .at(args.expect(pico!("key"))?, args.named(pico!("default"))?)
+                    .at(span)
+            }
             _ => (),
         }
     }

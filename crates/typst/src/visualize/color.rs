@@ -9,6 +9,7 @@ use palette::{
     Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 use qcms::Profile;
+use typst_utils::pico;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
@@ -269,8 +270,9 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_luma()
         } else {
-            let Component(gray) =
-                args.expect("gray component").unwrap_or(Component(Ratio::one()));
+            let Component(gray) = args
+                .expect(pico!("gray component"))
+                .unwrap_or(Component(Ratio::one()));
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
             Self::Luma(Luma::new(gray.get() as f32, alpha.get() as f32))
@@ -327,9 +329,9 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_oklab()
         } else {
-            let RatioComponent(l) = args.expect("lightness component")?;
-            let ChromaComponent(a) = args.expect("A component")?;
-            let ChromaComponent(b) = args.expect("B component")?;
+            let RatioComponent(l) = args.expect(pico!("lightness component"))?;
+            let ChromaComponent(a) = args.expect(pico!("A component"))?;
+            let ChromaComponent(b) = args.expect(pico!("B component"))?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
             Self::Oklab(Oklab::new(l.get() as f32, a, b, alpha.get() as f32))
@@ -385,9 +387,9 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_oklch()
         } else {
-            let RatioComponent(l) = args.expect("lightness component")?;
-            let ChromaComponent(c) = args.expect("chroma component")?;
-            let h: Angle = args.expect("hue component")?;
+            let RatioComponent(l) = args.expect(pico!("lightness component"))?;
+            let ChromaComponent(c) = args.expect(pico!("chroma component"))?;
+            let h: Angle = args.expect(pico!("hue component"))?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
             Self::Oklch(Oklch::new(
@@ -447,9 +449,9 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_linear_rgb()
         } else {
-            let Component(r) = args.expect("red component")?;
-            let Component(g) = args.expect("green component")?;
-            let Component(b) = args.expect("blue component")?;
+            let Component(r) = args.expect(pico!("red component"))?;
+            let Component(g) = args.expect(pico!("green component"))?;
+            let Component(b) = args.expect(pico!("blue component"))?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Self::LinearRgb(LinearRgb::new(
                 r.get() as f32,
@@ -520,9 +522,9 @@ impl Color {
         } else if let Some(color) = args.find::<Color>()? {
             color.to_rgb()
         } else {
-            let Component(r) = args.expect("red component")?;
-            let Component(g) = args.expect("green component")?;
-            let Component(b) = args.expect("blue component")?;
+            let Component(r) = args.expect(pico!("red component"))?;
+            let Component(g) = args.expect(pico!("green component"))?;
+            let Component(b) = args.expect(pico!("blue component"))?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Self::Rgb(Rgb::new(
                 r.get() as f32,
@@ -579,10 +581,10 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_cmyk()
         } else {
-            let RatioComponent(c) = args.expect("cyan component")?;
-            let RatioComponent(m) = args.expect("magenta component")?;
-            let RatioComponent(y) = args.expect("yellow component")?;
-            let RatioComponent(k) = args.expect("key/black component")?;
+            let RatioComponent(c) = args.expect(pico!("cyan component"))?;
+            let RatioComponent(m) = args.expect(pico!("magenta component"))?;
+            let RatioComponent(y) = args.expect(pico!("yellow component"))?;
+            let RatioComponent(k) = args.expect(pico!("key/black component"))?;
             Self::Cmyk(Cmyk::new(
                 c.get() as f32,
                 m.get() as f32,
@@ -638,9 +640,9 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_hsl()
         } else {
-            let h: Angle = args.expect("hue component")?;
-            let Component(s) = args.expect("saturation component")?;
-            let Component(l) = args.expect("lightness component")?;
+            let h: Angle = args.expect(pico!("hue component"))?;
+            let Component(s) = args.expect(pico!("saturation component"))?;
+            let Component(l) = args.expect(pico!("lightness component"))?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Self::Hsl(Hsl::new(
                 RgbHue::from_degrees(h.to_deg() as f32),
@@ -697,9 +699,9 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_hsv()
         } else {
-            let h: Angle = args.expect("hue component")?;
-            let Component(s) = args.expect("saturation component")?;
-            let Component(v) = args.expect("value component")?;
+            let h: Angle = args.expect(pico!("hue component"))?;
+            let Component(s) = args.expect(pico!("saturation component"))?;
+            let Component(v) = args.expect(pico!("value component"))?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Self::Hsv(Hsv::new(
                 RgbHue::from_degrees(h.to_deg() as f32),

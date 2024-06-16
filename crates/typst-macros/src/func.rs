@@ -432,11 +432,11 @@ fn create_param_parser(param: &Param) -> TokenStream {
     let mut value = if param.variadic {
         quote! { args.all()? }
     } else if param.named {
-        quote! { args.named(#name)? }
+        quote! { args.named(typst_utils::pico!(#name))? }
     } else if param.default.is_some() {
         quote! { args.eat()? }
     } else {
-        quote! { args.expect(#name)? }
+        quote! { args.expect(typst_utils::pico!(#name))? }
     };
 
     if let Some(default) = &param.default {

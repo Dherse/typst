@@ -1,5 +1,6 @@
 use comemo::Tracked;
 use typst_syntax::Span;
+use typst_utils::pico;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
@@ -99,26 +100,30 @@ impl ValueAccessor for Value {
 
         match self {
             Value::Array(array) => match method {
-                "push" => array.push(args.expect("value")?),
+                "push" => array.push(args.expect(pico!("value"))?),
                 "pop" => output = array.pop().at(span)?,
-                "insert" => {
-                    array.insert(args.expect("index")?, args.expect("value")?).at(span)?
-                }
+                "insert" => array
+                    .insert(args.expect(pico!("index"))?, args.expect(pico!("value"))?)
+                    .at(span)?,
                 "remove" => {
                     output = array
-                        .remove(args.expect("index")?, args.named("default")?)
+                        .remove(
+                            args.expect(pico!("index"))?,
+                            args.named(pico!("default"))?,
+                        )
                         .at(span)?
                 }
                 _ => return missing(),
             },
 
             Value::Dict(dict) => match method {
-                "insert" => {
-                    dict.insert(args.expect::<Str>("key")?, args.expect("value")?)
-                }
+                "insert" => dict.insert(
+                    args.expect::<Str>(pico!("key"))?,
+                    args.expect(pico!("value"))?,
+                ),
                 "remove" => {
                     output = dict
-                        .remove(args.expect("key")?, args.named("default")?)
+                        .remove(args.expect(pico!("key"))?, args.named(pico!("default"))?)
                         .at(span)?
                 }
                 _ => return missing(),

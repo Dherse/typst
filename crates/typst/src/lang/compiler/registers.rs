@@ -6,7 +6,7 @@ use ecow::EcoString;
 
 use crate::diag::bail;
 use crate::lang::operands::{
-    Constant, Global, LabelId, Math, Readable, Register, StringId, Writable,
+    Constant, Global, LabelId, Math, Readable, Register, Writable,
 };
 
 #[derive(Clone)]
@@ -211,7 +211,6 @@ pub enum ReadableGuard {
     Register(RegisterGuard),
     Captured(RegisterGuard),
     Constant(Constant),
-    String(StringId),
     GlobalModule,
     Global(Global),
     Math(Math),
@@ -227,7 +226,6 @@ impl From<ReadableGuard> for Readable {
             ReadableGuard::Register(register) => register.as_readable(),
             ReadableGuard::Captured(captured) => captured.into(),
             ReadableGuard::Constant(constant) => constant.into(),
-            ReadableGuard::String(string) => string.into(),
             ReadableGuard::Global(global) => global.into(),
             ReadableGuard::Math(math) => math.into(),
             ReadableGuard::None => Readable::none(),
@@ -248,12 +246,6 @@ impl From<RegisterGuard> for ReadableGuard {
 impl From<Constant> for ReadableGuard {
     fn from(constant: Constant) -> Self {
         Self::Constant(constant)
-    }
-}
-
-impl From<StringId> for ReadableGuard {
-    fn from(string: StringId) -> Self {
-        Self::String(string)
     }
 }
 

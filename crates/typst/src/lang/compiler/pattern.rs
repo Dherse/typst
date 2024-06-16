@@ -1,11 +1,12 @@
 use smallvec::SmallVec;
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
+use typst_utils::PicoStr;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::lang::compiled::{CompiledPattern, CompiledPatternItem, CompiledPatternKind};
-use crate::lang::operands::{AccessId, PatternId, StringId};
+use crate::lang::operands::{AccessId, PatternId};
 
 use super::access::{Access, CompileAccess};
 use super::{Compiler, IntoCompiledValue};
@@ -66,14 +67,13 @@ impl PatternCompile for ast::Pattern<'_> {
                     };
 
                     let access_id = compiler.access(access);
-                    let name_id = compiler.string(ident.as_str());
                     Ok(Pattern {
                         span: ident.span(),
                         declare: false,
                         kind: PatternKind::Single(PatternItem::Simple(
                             normal.span(),
                             access_id,
-                            name_id,
+                            PicoStr::from(ident.as_str()),
                         )),
                     })
                 }
@@ -102,11 +102,10 @@ impl PatternCompile for ast::Pattern<'_> {
                             };
 
                             let access_id = compiler.access(access);
-                            let name_id = compiler.string(ident.as_str());
                             items.push(PatternItem::Simple(
                                 binding.span(),
                                 access_id,
-                                name_id,
+                                PicoStr::from(ident.as_str()),
                             ));
                         }
                         ast::DestructuringItem::Pattern(pattern) => {
@@ -147,11 +146,10 @@ impl PatternCompile for ast::Pattern<'_> {
                             };
 
                             let access_id = compiler.access(access);
-                            let name_id = compiler.string(named.name().as_str());
                             items.push(PatternItem::Named(
                                 named.span(),
                                 access_id,
-                                name_id,
+                                PicoStr::from(named.name().as_str()),
                             ));
                         }
                     }
@@ -200,7 +198,7 @@ pub enum PatternItem {
     Placeholder(Span),
 
     /// Destructure into a single local.
-    Simple(Span, AccessId, StringId),
+    Simple(Span, AccessId, PicoStr),
 
     /// Destructure into a nested pattern.
     Nested(Span, PatternId),
@@ -212,7 +210,7 @@ pub enum PatternItem {
     SpreadDiscard(Span),
 
     /// A named pattern.
-    Named(Span, AccessId, StringId),
+    Named(Span, AccessId, PicoStr),
 }
 
 impl IntoCompiledValue for PatternItem {

@@ -809,11 +809,11 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
     let value = if field.variadic {
         quote! { args.all()? }
     } else if field.required {
-        quote! { args.expect(#name)? }
+        quote! { args.expect(typst_utils::pico!(#name))? }
     } else if field.positional {
         quote! { args.find()? }
     } else {
-        quote! { args.named(#name)? }
+        quote! { args.named(typst_utils::pico!(#name))? }
     };
 
     (quote! {}, value)

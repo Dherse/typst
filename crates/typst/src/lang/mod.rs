@@ -407,10 +407,11 @@ where
     for arg in &inner.params {
         match arg {
             Param::Pos { name, target } => {
-                vm.write_one(*target, args.expect::<Value>(name)?).at(compiled.span)?;
+                vm.write_one(*target, args.expect::<Value>(*name)?)
+                    .at(compiled.span)?;
             }
             Param::Named { name, default, target } => {
-                if let Some(value) = args.named::<Value>(name)? {
+                if let Some(value) = args.named::<Value>(*name)? {
                     vm.write_one(*target, value).at(compiled.span)?;
                 } else if let Some(default) = default {
                     vm.write_borrowed(*target, default);

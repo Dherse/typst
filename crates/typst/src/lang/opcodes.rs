@@ -1,12 +1,12 @@
 use std::num::{NonZeroU16, NonZeroU32};
 
 use typst_syntax::Span;
+use typst_utils::PicoStr;
 
 use super::interpreter::Iterable;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 
-use super::operands::StringId;
 use super::operands::{
     AccessId, ClosureId, LabelId, ModuleId, PatternId, Pointer, Readable, SpanId,
     Writable,
@@ -590,7 +590,7 @@ opcodes! {
     /// Inserts a named value into an argument set.
     InsertArg: insert_arg -> Writable => {
         /// The key to insert.
-        key: StringId,
+        key: PicoStr,
         /// The value to insert.
         value: Readable,
         /// The span of the value.

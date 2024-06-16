@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
-use typst::lang::Tracer;
 use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};

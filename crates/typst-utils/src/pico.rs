@@ -102,6 +102,8 @@ impl From<&str> for PicoStr {
 
 /// Creates a static interned string.
 ///
+/// Does not allocate a new string since it uses the `static_` method.
+///
 /// # Examples
 /// ```rust
 /// let pico = pico!("hello");

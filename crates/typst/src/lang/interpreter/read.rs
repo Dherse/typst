@@ -8,7 +8,7 @@ use crate::lang::compiled::{
 use crate::lang::operands::{
     AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
 };
-use crate::lang::operands::{Constant, Global, Math, ModuleId, Register, StringId};
+use crate::lang::operands::{Constant, Global, Math, ModuleId, Register};
 
 use super::Vm;
 
@@ -54,7 +54,6 @@ impl Read for Readable {
         match self {
             Readable::Const(const_) => const_.read(vm),
             Readable::Reg(reg) => vm.read(*reg),
-            Readable::Str(str_) => str_.read(vm),
             Readable::Global(global) => global.read(vm),
             Readable::Math(math) => math.read(vm),
             Readable::Bool(bool_) => {
@@ -121,14 +120,6 @@ impl Read for Register {
 impl Write for Register {
     fn write<'b>(&self, vm: &'b mut Vm<'_, '_>) -> Option<&'b mut Value> {
         Some(vm.registers[self.0 as usize].to_mut())
-    }
-}
-
-impl Read for StringId {
-    type Output<'a, 'b> = &'a Value where 'a: 'b;
-
-    fn read<'a, 'b>(&self, vm: &'b Vm<'a, '_>) -> Self::Output<'a, 'b> {
-        &vm.code.strings[self.0 as usize]
     }
 }
 

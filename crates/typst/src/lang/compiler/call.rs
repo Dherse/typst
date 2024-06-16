@@ -1,5 +1,6 @@
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
+use typst_utils::PicoStr;
 
 use crate::engine::Engine;
 use crate::foundations::is_mutating_method;
@@ -87,7 +88,7 @@ impl Compile for ast::Arg<'_> {
                 compiler.push_arg(self.span(), guard, span_id, output);
             }
             ast::Arg::Named(named) => {
-                let name = compiler.string(named.name().as_str());
+                let name = PicoStr::new(named.name().as_str());
                 let value = named.expr().compile_to_readable(compiler, engine)?;
                 let span_id = compiler.span(named.expr().span());
                 compiler.insert_arg(self.span(), name, value, span_id, output);

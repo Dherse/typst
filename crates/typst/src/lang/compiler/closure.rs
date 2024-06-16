@@ -5,7 +5,6 @@ use typst_utils::PicoStr;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::Value;
 use crate::lang::compiled::{CompiledClosure, CompiledParam};
 use crate::lang::compiler::{
     Access, CompileTopLevel, PatternCompile, PatternItem, PatternKind,
@@ -79,18 +78,7 @@ pub fn compile_closure(
                         );
                     };
 
-                    let Some(Value::Str(name)) = closure_compiler.get_string(name) else {
-                        bail!(
-                            pat.span(),
-                            "expected a string for parameter name";
-                            hint: "this is a compiler bug"
-                        );
-                    };
-
-                    parameters.push(CompiledParam::Pos(
-                        reg.clone().into(),
-                        PicoStr::from(name.as_str()),
-                    ));
+                    parameters.push(CompiledParam::Pos(reg.clone().into(), *name));
 
                     continue;
                 }

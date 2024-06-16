@@ -94,7 +94,6 @@ impl<'a> Vm<'a, '_> {
             Readable::Const(const_) => {
                 Cow::Borrowed(&self.code.constants[const_.0 as usize])
             }
-            Readable::Str(string) => Cow::Borrowed(&self.code.strings[string.0 as usize]),
             Readable::Global(global) => Cow::Borrowed(
                 self.code.global.global.field_by_index(global.0 as usize).unwrap(),
             ),
@@ -231,11 +230,11 @@ impl<'a> Vm<'a, '_> {
         for param in closure.params.iter().flat_map(|p| p.iter()) {
             match param {
                 CompiledParam::Pos(target, pos) => {
-                    params.push(Param::Pos { name: pos.resolve(), target: *target });
+                    params.push(Param::Pos { name: *pos, target: *target });
                 }
                 CompiledParam::Named { target, name, default, .. } => {
                     params.push(Param::Named {
-                        name: name.resolve(),
+                        name: *name,
                         default: self.read(*default).cloned(),
                         target: *target,
                     });

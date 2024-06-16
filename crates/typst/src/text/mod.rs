@@ -34,6 +34,7 @@ use ecow::{eco_format, EcoString};
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::{Rect, Tag};
+use typst_utils::pico;
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
@@ -751,7 +752,7 @@ impl Construct for TextElem {
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         let styles = Self::set(engine, args)?;
-        let body = args.expect::<Content>("body")?;
+        let body = args.expect::<Content>(pico!("body"))?;
         Ok(body.styled_with_map(styles))
     }
 }

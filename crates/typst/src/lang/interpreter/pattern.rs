@@ -210,38 +210,32 @@ fn destructure_dict(
     for p in tuple {
         match p {
             CompiledPatternItem::Placeholder(_) => {}
-            CompiledPatternItem::Simple(span, local, name) => {
-                let Value::Str(key) = vm.read(*name) else {
-                    unreachable!("malformed string id");
-                };
-
-                let v = dict.get(key.as_str()).at(*span)?;
+            CompiledPatternItem::Simple(span, local, key) => {
+                let key = key.resolve();
+                let v = dict.get(key).at(*span)?;
 
                 let access = vm.read(*local);
                 access.get(vm, engine, declare, |accessor| {
                     accessor.write(v.clone()).at(*span)
                 })?;
 
-                used.as_mut().map(|u| u.insert(key.clone()));
+                used.as_mut().map(|u| u.insert(key));
             }
             CompiledPatternItem::Nested(span, _) => {
                 bail!(*span, "cannot destructure unnamed pattern from dictionary");
             }
             CompiledPatternItem::Spread(span, local) => sink = Some((*span, Some(local))),
             CompiledPatternItem::SpreadDiscard(span) => sink = Some((*span, None)),
-            CompiledPatternItem::Named(span, local, name) => {
-                let Value::Str(key) = vm.read(*name) else {
-                    unreachable!("malformed string id");
-                };
-
-                let v = dict.get(key.as_str()).at(*span)?;
+            CompiledPatternItem::Named(span, local, key) => {
+                let key = key.resolve();
+                let v = dict.get(key).at(*span)?;
 
                 let access = vm.read(*local);
                 access.get(vm, engine, declare, |accessor| {
                     accessor.write(v.clone()).at(*span)
                 })?;
 
-                used.as_mut().map(|u| u.insert(key.clone()));
+                used.as_mut().map(|u| u.insert(key));
             }
         }
     }

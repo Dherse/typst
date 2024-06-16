@@ -10,7 +10,7 @@ use crate::lang::compiled::{
 };
 use crate::lang::operands::{
     AccessId, ClosureId, Constant, LabelId, ModuleId, PatternId, Pointer, Register,
-    SpanId, StringId,
+    SpanId,
 };
 use crate::utils::hash128;
 
@@ -82,16 +82,6 @@ pub trait RemapperKey: Clone + Hash + Eq {
 }
 
 impl RemapperKey for Constant {
-    fn as_raw(&self) -> u16 {
-        Self::as_raw(*self)
-    }
-
-    fn from_raw(raw: u16) -> Self {
-        Self::new(raw)
-    }
-}
-
-impl RemapperKey for StringId {
     fn as_raw(&self) -> u16 {
         Self::as_raw(*self)
     }

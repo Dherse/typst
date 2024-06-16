@@ -18,6 +18,7 @@ use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use smallvec::{smallvec, SmallVec};
 use typed_arena::Arena;
+use typst_utils::pico;
 
 use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -296,8 +297,8 @@ impl Bibliography {
         engine: &mut Engine,
         args: &mut Args,
     ) -> SourceResult<(BibliographyPaths, Bibliography)> {
-        let Spanned { v: paths, span } =
-            args.expect::<Spanned<BibliographyPaths>>("path to bibliography file")?;
+        let Spanned { v: paths, span } = args
+            .expect::<Spanned<BibliographyPaths>>(pico!("path to bibliography file"))?;
 
         // Load bibliography files.
         let data = paths

@@ -1,4 +1,5 @@
 use typst_syntax::{Span, Spanned};
+use typst_utils::PicoStr;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
@@ -110,17 +111,12 @@ impl SimpleRun for InsertArg {
         // Obtain the value.
         let value = vm.read(self.value).clone();
 
-        // Get the argument name.
-        let Value::Str(name) = vm.read(self.key).clone() else {
-            bail!(span, "expected string, found {}", value.ty());
-        };
-
         // Get a mutable reference to the argument set.
         let Some(Value::Args(args)) = vm.write(self.out) else {
             bail!(span, "expected argument set, found {}", value.ty());
         };
 
-        args.insert(span, value_span, name, value);
+        args.insert(span, value_span, self.key, value);
 
         Ok(())
     }
@@ -146,7 +142,7 @@ impl SimpleRun for SpreadArg {
             Value::Dict(dict) => {
                 into.extend(dict.into_iter().map(|(name, value)| Arg {
                     span,
-                    name: Some(name),
+                    name: Some(PicoStr::from(name.as_str())),
                     value: Spanned::new(value, value_span),
                 }));
             }
@@ -198,7 +194,7 @@ impl SimpleRun for Spread {
                 Value::Dict(dict) => {
                     into.extend(dict.into_iter().map(|(name, value)| Arg {
                         span,
-                        name: Some(name),
+                        name: Some(PicoStr::from(name.as_str())),
                         value: Spanned::new(value, span),
                     }));
                 }

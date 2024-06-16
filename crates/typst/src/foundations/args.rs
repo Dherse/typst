@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use typst_utils::PicoStr;
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::foundations::{
@@ -99,10 +100,16 @@ impl Args {
     }
 
     /// Insert a named argument.
-    pub fn insert(&mut self, span: Span, value_span: Span, name: Str, value: Value) {
+    pub fn insert(
+        &mut self,
+        span: Span,
+        value_span: Span,
+        name: impl Into<PicoStr>,
+        value: Value,
+    ) {
         self.items.push(Arg {
             span,
-            name: Some(name),
+            name: Some(name.into()),
             value: Spanned::new(value, value_span),
         })
     }
@@ -151,7 +158,7 @@ impl Args {
     ///
     /// Returns a `missing argument: {what}` error if no positional argument is
     /// left.
-    pub fn expect<T>(&mut self, what: &str) -> SourceResult<T>
+    pub fn expect<T>(&mut self, what: PicoStr) -> SourceResult<T>
     where
         T: FromValue<Spanned<Value>>,
     {
@@ -162,19 +169,20 @@ impl Args {
     }
 
     /// The error message for missing arguments.
-    fn missing_argument(&self, what: &str) -> SourceDiagnostic {
+    fn missing_argument(&self, what: impl Into<PicoStr>) -> SourceDiagnostic {
+        let what = what.into();
         for item in &self.items {
-            let Some(name) = item.name.as_deref() else { continue };
+            let Some(name) = item.name else { continue };
             if name == what {
                 return error!(
                     item.span,
-                    "the argument `{what}` is positional";
-                    hint: "try removing `{}:`", name,
+                    "the argument `{}` is positional", what.resolve();
+                    hint: "try removing `{}:`", name.resolve(),
                 );
             }
         }
 
-        error!(self.span, "missing argument: {what}")
+        error!(self.span, "missing argument: {}", what.resolve())
     }
 
     /// Find and consume the first castable positional argument.
@@ -219,16 +227,18 @@ impl Args {
 
     /// Cast and remove the value for the given named argument, returning an
     /// error if the conversion fails.
-    pub fn named<T>(&mut self, name: &str) -> SourceResult<Option<T>>
+    pub fn named<T>(&mut self, name: impl Into<PicoStr>) -> SourceResult<Option<T>>
     where
         T: FromValue<Spanned<Value>>,
     {
+        let name = name.into();
+
         // We don't quit once we have a match because when multiple matches
         // exist, we want to remove all of them and use the last one.
         let mut i = 0;
         let mut found = None;
         while i < self.items.len() {
-            if self.items[i].name.as_deref() == Some(name) {
+            if self.items[i].name == Some(name) {
                 let value = self.items.remove(i).value;
                 let span = value.span;
                 found = Some(T::from_value(value).at(span)?);
@@ -240,7 +250,10 @@ impl Args {
     }
 
     /// Same as named, but with fallback to find.
-    pub fn named_or_find<T>(&mut self, name: &str) -> SourceResult<Option<T>>
+    pub fn named_or_find<T>(
+        &mut self,
+        name: impl Into<PicoStr>,
+    ) -> SourceResult<Option<T>>
     where
         T: FromValue<Spanned<Value>>,
     {
@@ -263,7 +276,7 @@ impl Args {
     pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
             match &arg.name {
-                Some(name) => bail!(arg.span, "unexpected argument: {name}"),
+                Some(name) => bail!(arg.span, "unexpected argument: {}", name.resolve()),
                 _ => bail!(arg.span, "unexpected argument"),
             }
         }
@@ -309,7 +322,11 @@ impl Args {
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
-            .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
+            .filter_map(|item| {
+                item.name
+                    .clone()
+                    .map(|name| (Str::from(name.resolve()), item.value.v.clone()))
+            })
             .collect()
     }
 }
@@ -346,7 +363,7 @@ pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<Str>,
+    pub name: Option<PicoStr>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
@@ -354,7 +371,7 @@ pub struct Arg {
 impl Debug for Arg {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if let Some(name) = &self.name {
-            name.fmt(f)?;
+            name.resolve().fmt(f)?;
             f.write_str(": ")?;
             self.value.v.fmt(f)
         } else {
@@ -366,7 +383,7 @@ impl Debug for Arg {
 impl Repr for Arg {
     fn repr(&self) -> EcoString {
         if let Some(name) = &self.name {
-            eco_format!("{}: {}", name, self.value.v.repr())
+            eco_format!("{}: {}", name.resolve(), self.value.v.repr())
         } else {
             self.value.v.repr()
         }

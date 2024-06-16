@@ -3,7 +3,6 @@
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
-use typst::lang::Tracer;
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;

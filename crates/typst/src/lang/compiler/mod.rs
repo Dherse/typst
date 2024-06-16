@@ -24,7 +24,7 @@ use typst_syntax::Span;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{IntoValue, Label, Str, Value};
+use crate::foundations::{IntoValue, Label, Value};
 use crate::lang::compiled::CodeCapture;
 use crate::Library;
 
@@ -34,7 +34,7 @@ use super::compiled::{
 use super::opcodes::Opcode;
 use super::operands::{
     AccessId, ClosureId, Constant, LabelId, ModuleId, PatternId, Pointer, Readable,
-    SpanId, StringId, Writable,
+    SpanId, Writable,
 };
 
 pub use self::access::*;
@@ -70,8 +70,6 @@ pub struct Compiler<'lib> {
     pub(super) scope: Rc<RefCell<Scope<'lib>>>,
     /// The constant remapper.
     constants: Remapper<Constant, Value>,
-    /// The string remapper.
-    strings: Remapper<StringId, Value>,
     /// The label remapper.
     labels: Remapper<LabelId, Label>,
     /// The span remapper.
@@ -110,7 +108,6 @@ impl<'lib> Compiler<'lib> {
                 Some(RegisterAllocator::new()),
             ))),
             constants: Remapper::default(),
-            strings: Remapper::default(),
             labels: Remapper::default(),
             spans: Remapper::default(),
             accesses: Remapper::default(),
@@ -139,7 +136,6 @@ impl<'lib> Compiler<'lib> {
                 Some(RegisterAllocator::new()),
             ))),
             constants: Remapper::default(),
-            strings: Remapper::default(),
             labels: Remapper::default(),
             spans: Remapper::default(),
             accesses: Remapper::default(),
@@ -266,16 +262,6 @@ impl<'lib> Compiler<'lib> {
         self.patterns.insert(pattern)
     }
 
-    /// Inserts a new string into the string pool.
-    pub fn string(&mut self, string: impl Into<EcoString>) -> StringId {
-        self.strings.insert(Value::Str(Str::from(string.into())))
-    }
-
-    /// Get a string by its ID.
-    pub fn get_string(&self, string: &StringId) -> Option<&Value> {
-        self.strings.get(string)
-    }
-
     /// Inserts a new dynamic module into the module pool.
     pub fn module(&mut self, module: DynamicModule) -> ModuleId {
         self.modules.insert(module)
@@ -332,7 +318,6 @@ impl<'lib> Compiler<'lib> {
         let readable = readable.into();
         match readable {
             Readable::Const(cst) => self.get_constant(&cst).map(Cow::Borrowed),
-            Readable::Str(str) => self.get_string(&str).map(Cow::Borrowed),
             Readable::Global(glob) => {
                 let glob = self.library().global.field_by_index(glob.as_raw() as usize)?;
                 Some(Cow::Borrowed(glob))
@@ -463,7 +448,6 @@ impl<'lib> Compiler<'lib> {
             global: scopes.global().expect("failed to get library").clone(),
             registers,
             constants: self.constants.into_values().into(),
-            strings: self.strings.into_values().into(),
             closures: self.closures.into_values().into(),
             accesses: self.accesses.into_values().into(),
             labels: self.labels.into_values().into(),
@@ -512,7 +496,6 @@ impl<'lib> Compiler<'lib> {
             spans: self.isr_spans.into(),
             global,
             constants: self.constants.into_values().into(),
-            strings: self.strings.into_values().into(),
             closures: self.closures.into_values().into(),
             accesses: self.accesses.into_values().into(),
             labels: self.labels.into_values().into(),

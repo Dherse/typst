@@ -5,7 +5,6 @@ use std::fmt;
 pub enum Readable {
     Const(Constant),
     Reg(Register),
-    Str(StringId),
     Global(Global),
     Math(Math),
     Bool(bool),
@@ -41,11 +40,6 @@ impl Readable {
         Self::Reg(reg)
     }
 
-    /// Creates a new string readable.
-    pub const fn string(string: StringId) -> Self {
-        Self::Str(string)
-    }
-
     /// Creates a new global readable.
     pub const fn global(global: Global) -> Self {
         Self::Global(global)
@@ -79,17 +73,6 @@ impl Readable {
     pub fn as_reg(self) -> Register {
         match self {
             Self::Reg(register) => register,
-            _ => unreachable!(),
-        }
-    }
-
-    /// Returns this readable as a string.
-    ///
-    /// # Panics
-    /// Panics if the readable is not a string.
-    pub fn as_string(self) -> StringId {
-        match self {
-            Self::Str(string) => string,
             _ => unreachable!(),
         }
     }
@@ -149,7 +132,6 @@ impl fmt::Debug for Readable {
         match self {
             Self::Const(const_) => const_.fmt(f),
             Self::Reg(reg) => reg.fmt(f),
-            Self::Str(string) => string.fmt(f),
             Self::Global(global) => global.fmt(f),
             Self::Math(math) => math.fmt(f),
             Self::Bool(value) => write!(f, "{value}"),
@@ -170,12 +152,6 @@ impl From<Constant> for Readable {
 impl From<Register> for Readable {
     fn from(register: Register) -> Self {
         Self::reg(register)
-    }
-}
-
-impl From<StringId> for Readable {
-    fn from(string: StringId) -> Self {
-        Self::string(string)
     }
 }
 
@@ -310,7 +286,6 @@ macro_rules! id {
 id! {
     Constant => "C",
     Register => "R",
-    StringId => "S",
     ClosureId => "F",
     AccessId => "A",
     Global => "G",

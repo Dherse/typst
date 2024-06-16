@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use typst_macros::cast;
 use typst_syntax::Span;
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, PicoStr};
 
 use crate::foundations::Value;
 
@@ -56,12 +56,12 @@ impl Closure {
             .flat_map(|params| params.iter())
             .map(|param| match param {
                 CompiledParam::Pos(output, name) => {
-                    Param::Pos { name: name.resolve(), target: *output }
+                    Param::Pos { name: *name, target: *output }
                 }
                 CompiledParam::Named { target, name, default, .. } => {
                     let Some(default) = default else {
                         return Param::Named {
-                            name: name.resolve(),
+                            name: *name,
                             default: None,
                             target: *target,
                         };
@@ -73,7 +73,7 @@ impl Closure {
                     };
 
                     Param::Named {
-                        name: name.resolve(),
+                        name: *name,
                         default: Some(default),
                         target: *target,
                     }
@@ -93,14 +93,14 @@ pub enum Param {
     /// A positional parameter.
     Pos {
         /// The name of the parameter.
-        name: &'static str,
+        name: PicoStr,
         /// The target in which to store the value.
         target: Register,
     },
     /// A named parameter.
     Named {
         /// The name of the parameter.
-        name: &'static str,
+        name: PicoStr,
         /// The default value of the parameter.
         default: Option<Value>,
         /// The target in which to store the value.

@@ -210,19 +210,6 @@ impl ModuleLoad for ast::Ident<'_> {
                 return import_value(engine, value, self.span(), true);
             }
             ReadableGuard::Captured(_) => {}
-            ReadableGuard::String(string) => {
-                // If we are a string, we can try and import it.
-                let path = compiler.get_string(&string).unwrap();
-                let Value::Str(path) = path else {
-                    bail!(
-                        self.span(),
-                        "expected string, found {}",
-                        path.ty().short_name()
-                    );
-                };
-
-                return import(engine, path.as_str(), self.span());
-            }
             ReadableGuard::Global(value) => {
                 // If we are a global, we can try and import it.
                 let Some(lib) =

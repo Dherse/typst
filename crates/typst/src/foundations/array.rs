@@ -7,6 +7,7 @@ use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use typst_utils::pico;
 
 use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -379,7 +380,7 @@ impl Array {
         #[default(NonZeroI64::new(1).unwrap())]
         step: NonZeroI64,
     ) -> SourceResult<Array> {
-        let first = args.expect::<i64>("end")?;
+        let first = args.expect::<i64>(pico!("end"))?;
         let (start, end) = match args.eat::<i64>()? {
             Some(second) => (first, second),
             None => (0, first),
@@ -505,7 +506,7 @@ impl Array {
         // Fast path for just two arrays.
         if remaining == 1 {
             let Spanned { v: other, span: other_span } =
-                args.expect::<Spanned<Array>>("others")?;
+                args.expect::<Spanned<Array>>(pico!("others"))?;
             if exact && self.len() != other.len() {
                 bail!(
                     other_span,

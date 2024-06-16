@@ -12,8 +12,8 @@ use crate::Library;
 use super::closure::Closure;
 use super::compiler::Compiler;
 use super::opcodes::Opcode;
+use super::operands::Register;
 use super::operands::{AccessId, PatternId, Readable};
-use super::operands::{Register, StringId};
 
 #[derive(Clone, Hash)]
 pub struct CompiledCode {
@@ -36,8 +36,6 @@ pub struct CompiledCode {
     pub registers: usize,
     /// The list of constants.
     pub constants: Box<[Value]>,
-    /// The list of strings.
-    pub strings: Box<[Value]>,
     /// The list of labels.
     pub labels: Box<[Value]>,
     /// The list of modules.
@@ -127,7 +125,7 @@ pub enum CompiledPatternItem {
     Placeholder(Span),
 
     /// Destructure into a single local.
-    Simple(Span, AccessId, StringId),
+    Simple(Span, AccessId, PicoStr),
 
     /// Destructure into a nested pattern.
     Nested(Span, PatternId),
@@ -139,7 +137,7 @@ pub enum CompiledPatternItem {
     SpreadDiscard(Span),
 
     /// A named pattern.
-    Named(Span, AccessId, StringId),
+    Named(Span, AccessId, PicoStr),
 }
 
 #[derive(Debug, Clone, Hash)]

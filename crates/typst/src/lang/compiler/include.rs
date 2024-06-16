@@ -93,25 +93,6 @@ impl ModuleInclude for ast::Ident<'_> {
                     self.span(),
                 );
             }
-            ReadableGuard::String(string) => {
-                // If we are a string, we can try and import it.
-                let path = compiler.get_string(&string).unwrap();
-                let Value::Str(path) = path.clone() else {
-                    bail!(
-                        self.span(),
-                        "expected string, found {}",
-                        path.ty().short_name()
-                    );
-                };
-
-                return include_path(
-                    compiler,
-                    engine,
-                    path.as_str(),
-                    output,
-                    self.span(),
-                );
-            }
             ReadableGuard::Global(value) => {
                 // If we are a global, we can try and import it.
                 let Some(lib) =

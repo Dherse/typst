@@ -3,7 +3,7 @@ use typst_utils::PicoStr;
 
 use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{unknown_variable, Value};
+use crate::foundations::{unknown_variable, Str, Value};
 use crate::lang::compiled::CompiledClosure;
 use crate::lang::compiler::CompileAccess;
 use crate::lang::operands::Readable;
@@ -497,7 +497,7 @@ impl Compile for ast::Str<'_> {
         compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
-        let str = compiler.string(self.get());
+        let str = compiler.const_(Value::Str(Str::from(self.get())));
         Ok(str.into())
     }
 }
@@ -556,7 +556,8 @@ impl Compile for ast::Dict<'_> {
         for item in self.items() {
             match item {
                 ast::DictItem::Named(item) => {
-                    let key = compiler.string(item.name().get().clone());
+                    let key =
+                        compiler.const_(Value::Str(Str::from(item.name().get().clone())));
                     let value = item.expr().compile_to_readable(compiler, engine)?;
                     compiler.insert(item.span(), key, value, output.clone());
                 }
