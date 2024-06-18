@@ -132,6 +132,7 @@ impl Eval for ast::Expr<'_> {
             Self::Break(v) => v.eval(vm),
             Self::Continue(v) => v.eval(vm),
             Self::Return(v) => v.eval(vm),
+            Self::Type(v) => v.eval(vm).map(|_| Value::None),
         }?
         .spanned(span);
 

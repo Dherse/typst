@@ -177,6 +177,10 @@ pub enum SyntaxKind {
     Show,
     /// The `context` keyword.
     Context,
+    /// The `type` keyword.
+    Type,
+    /// The `field` keyword.
+    Field,
     /// The `if` keyword.
     If,
     /// The `else` keyword.
@@ -278,6 +282,10 @@ pub enum SyntaxKind {
     Destructuring,
     /// A destructuring assignment expression: `(x, y) = (1, 2)`.
     DestructAssignment,
+    /// A type definition: `type Point = { field x, field y }`.
+    TypeDefinition,
+    /// A field definition: `field x: <ty> = <default>,`.
+    FieldDefinition,
 }
 
 impl SyntaxKind {
@@ -498,6 +506,10 @@ impl SyntaxKind {
             Self::FuncReturn => "`return` expression",
             Self::Destructuring => "destructuring pattern",
             Self::DestructAssignment => "destructuring assignment expression",
+            Self::Type => "keyword `type`",
+            Self::TypeDefinition => "`type` definition",
+            Self::Field => "keyword `field`",
+            Self::FieldDefinition => "`field` definition",
         }
     }
 }

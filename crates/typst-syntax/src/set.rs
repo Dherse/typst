@@ -97,6 +97,15 @@ pub const ATOMIC_CODE_EXPR: SyntaxSet = ATOMIC_CODE_PRIMARY;
 /// Syntax kinds that can start a code primary.
 pub const CODE_PRIMARY: SyntaxSet = ATOMIC_CODE_PRIMARY.add(SyntaxKind::Underscore);
 
+/// Syntax kinds that can start a type expression.
+pub const TYPE_EXPR: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Let)
+    .add(SyntaxKind::Show)
+    .add(SyntaxKind::Field)
+    .add(SyntaxKind::LineComment)
+    .add(SyntaxKind::BlockComment)
+    .add(SyntaxKind::Type);
+
 /// Syntax kinds that can start an atomic code primary.
 pub const ATOMIC_CODE_PRIMARY: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Ident)

@@ -199,6 +199,8 @@ pub enum Expr<'a> {
     Continue(LoopContinue<'a>),
     /// A return from a function: `return`, `return x + 1`.
     Return(FuncReturn<'a>),
+    /// A user-defined type.
+    Type(TypeDefinition<'a>),
 }
 
 impl<'a> Expr<'a> {
@@ -269,6 +271,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::LoopBreak => node.cast().map(Self::Break),
             SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
             SyntaxKind::FuncReturn => node.cast().map(Self::Return),
+            SyntaxKind::TypeDefinition => node.cast().map(Self::Type),
             _ => Option::None,
         }
     }
@@ -332,6 +335,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Break(v) => v.to_untyped(),
             Self::Continue(v) => v.to_untyped(),
             Self::Return(v) => v.to_untyped(),
+            Self::Type(v) => v.to_untyped(),
         }
     }
 }
@@ -2159,6 +2163,18 @@ impl<'a> FuncReturn<'a> {
     /// The expression to return.
     pub fn body(self) -> Option<Expr<'a>> {
         self.0.cast_last_match()
+    }
+}
+
+node! {
+    /// A new type definition: `type Point = { field x, field y }`.²
+    TypeDefinition
+}
+
+impl<'a> TypeDefinition<'a> {
+    /// The name of the type.
+    pub fn name(self) -> Ident<'a> {
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 

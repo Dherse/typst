@@ -12,6 +12,7 @@ mod markup;
 mod math;
 mod rules;
 mod vm;
+mod types;
 
 pub use self::call::*;
 pub use self::import::*;

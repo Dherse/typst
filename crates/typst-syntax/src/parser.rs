@@ -787,6 +787,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
         SyntaxKind::Show => show_rule(p),
+        SyntaxKind::TypeDefinition => type_def(p),
         SyntaxKind::Context => contextual(p, atomic),
         SyntaxKind::If => conditional(p),
         SyntaxKind::While => while_loop(p),
@@ -924,6 +925,82 @@ fn show_rule(p: &mut Parser) {
     }
 
     p.wrap(m, SyntaxKind::ShowRule);
+}
+
+/// Parses a `type` definition: `type List { field a, field b, ... }`
+fn type_def(p: &mut Parser) {
+    let m = p.marker();
+
+    // Ensure that we are in a `type` block.
+    p.assert(SyntaxKind::Type);
+
+    // Parse the type name.
+    p.expect(SyntaxKind::Ident);
+
+    // Ensure that we contain a properly defined type.
+    type_body(p);
+
+    // Wrap the whole block into a type definition.
+    p.wrap(m, SyntaxKind::TypeDefinition);
+}
+
+fn type_body(p: &mut Parser) {
+    const END: SyntaxSet = SyntaxSet::new()
+        .add(SyntaxKind::RightBrace)
+        .add(SyntaxKind::RightBracket)
+        .add(SyntaxKind::RightParen);
+
+    let m = p.marker();
+
+    // Enter regular code mode.
+    p.enter(LexMode::Code);
+    p.enter_newline_mode(NewlineMode::Continue);
+
+    // Assert that we begin with a left brace.
+    p.assert(SyntaxKind::LeftBrace);
+
+    type_(p, |p| p.at_set(END));
+
+    // Ensure that we end with a right brace.
+    p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
+
+    p.exit();
+    p.exit_newline_mode();
+}
+
+fn type_(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
+    while !p.end() && !stop(p) {
+        p.enter_newline_mode(NewlineMode::Contextual);
+
+        let at_expr = p.at_set(set::TYPE_EXPR);
+        if at_expr {
+            type_expr(p);
+
+            if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
+                p.expected("semicolon or line break");
+                if p.at(SyntaxKind::Label) {
+                    p.hint("labels can only be applied in markup mode");
+                    p.hint("try wrapping your code in a markup block (`[ ]`)");
+                }
+            }
+        }
+
+        p.exit_newline_mode();
+        if !at_expr && !p.end() {
+            p.unexpected();
+        }
+    }
+}
+
+fn type_expr(p: &mut Parser) {
+    let m = p.marker();
+    match p.current() {
+        SyntaxKind::Field => field(p),
+        SyntaxKind::Show => show_rule(p),
+        SyntaxKind::Let => let_binding(p),
+        SyntaxKind::TypeDefinition => type_def(p),
+        _ => p.expected("type expression"),
+    }
 }
 
 /// Parses a contextual expression: `context text.lang`.
