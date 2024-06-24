@@ -5,12 +5,13 @@ use typst_utils::PicoStr;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
+use crate::foundations::Func;
 use crate::lang::compiled::{CompiledClosure, CompiledParam};
 use crate::lang::compiler::{
     Access, CompileTopLevel, PatternCompile, PatternItem, PatternKind,
 };
 
-use super::{Compile, Compiler, WritableGuard};
+use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::Closure<'_> {
     fn compile(
@@ -25,7 +26,24 @@ impl Compile for ast::Closure<'_> {
             self.span(),
             self.params(),
             self.body(),
-            output,
+            Some(output),
+            None,
+        )
+        .map(|_| ())
+    }
+
+    fn compile_to_readable(
+        &self,
+        compiler: &mut Compiler<'_>,
+        engine: &mut Engine,
+    ) -> SourceResult<ReadableGuard> {
+        compile_closure(
+            compiler,
+            engine,
+            self.span(),
+            self.params(),
+            self.body(),
+            None,
             None,
         )
     }
@@ -37,9 +55,9 @@ pub fn compile_closure(
     closure_span: Span,
     params: ast::Params,
     body: ast::Expr,
-    output: WritableGuard,
+    output: Option<WritableGuard>,
     name: Option<&EcoString>,
-) -> SourceResult<()> {
+) -> SourceResult<ReadableGuard> {
     // Evaluate default values of named parameters.
     let mut defaults = Vec::new();
     for param in params.children() {
@@ -158,10 +176,25 @@ pub fn compile_closure(
 
     // Get the closure ID.
     let compiled = CompiledClosure::new(compiled_closure, &*compiler);
-    let closure_id = compiler.closure(compiled);
 
     // Instantiate the closure.
-    compiler.instantiate(closure_span, closure_id, output);
-
-    Ok(())
+    if let CompiledClosure::Instanciated(closure) = compiled {
+        let const_id = compiler.const_(Func::from(closure));
+        if let Some(output) = output {
+            compiler.copy(closure_span, const_id, output.clone());
+            Ok(output.try_into().unwrap())
+        } else {
+            Ok(const_id.into())
+        }
+    } else {
+        let closure_id = compiler.closure(compiled);
+        if let Some(output) = output {
+            compiler.instantiate(closure_span, closure_id, output.clone());
+            Ok(output.try_into().unwrap())
+        } else {
+            let reg = compiler.allocate();
+            compiler.instantiate(closure_span, closure_id, reg.clone());
+            Ok(reg.into())
+        }
+    }
 }

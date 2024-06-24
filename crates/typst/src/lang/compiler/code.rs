@@ -3,7 +3,7 @@ use typst_utils::PicoStr;
 
 use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{unknown_variable, Str, Value};
+use crate::foundations::{unknown_variable, Func, Str, Value};
 use crate::lang::compiled::CompiledClosure;
 use crate::lang::compiler::CompileAccess;
 use crate::lang::operands::Readable;
@@ -698,16 +698,24 @@ impl Compile for ast::Contextual<'_> {
 
         // Get the closure ID.
         let compiled = CompiledClosure::new(closure, &*compiler);
-        let closure_id = compiler.closure(compiled);
 
-        // Get a register to write the temporary values to.
-        let reg = compiler.allocate();
+        // Instantiate the closure if necessary.
+        let redable = if let CompiledClosure::Instanciated(closure) = compiled {
+            let const_id = compiler.const_(Func::from(closure));
 
-        // Instantiate the closure.
-        compiler.instantiate(self.span(), closure_id, reg.clone());
+            ReadableGuard::Constant(const_id)
+        } else {
+            // Get a register to write the temporary values to.
+            let reg = compiler.allocate();
+
+            let closure_id = compiler.closure(compiled);
+            compiler.instantiate(self.span(), closure_id, reg.clone());
+
+            ReadableGuard::Register(reg)
+        };
 
         // Create the contextual element
-        compiler.contextual(self.span(), reg.clone(), output);
+        compiler.contextual(self.span(), redable, output);
 
         Ok(())
     }

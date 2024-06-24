@@ -142,7 +142,8 @@ fn compile_let_closure(
         closure_span,
         closure.params(),
         closure.body(),
-        local.into(),
+        Some(local.into()),
         Some(closure_name),
     )
+    .map(|_| ())
 }

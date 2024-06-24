@@ -324,3 +324,15 @@ impl TryFrom<ReadableGuard> for WritableGuard {
         }
     }
 }
+
+impl TryFrom<WritableGuard> for ReadableGuard {
+    type Error = EcoString;
+
+    fn try_from(value: WritableGuard) -> Result<Self, Self::Error> {
+        if let WritableGuard::Register(register) = value {
+            Ok(Self::Register(register))
+        } else {
+            bail!("this value is not readable")
+        }
+    }
+}
