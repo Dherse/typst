@@ -182,7 +182,6 @@ impl<'a> Vm<'a, '_> {
     }
 
     /// Instantiate a closure.
-    #[typst_macros::time(name = "instantiate closure", span = closure.span())]
     pub fn instantiate(
         &self,
         closure: &'a CompiledClosure,
@@ -227,7 +226,6 @@ impl<'a> Vm<'a, '_> {
 
     /// Enter a new scope.
     #[allow(clippy::too_many_arguments)]
-    #[typst_macros::time(name = "enter scope", span = spans.first().cloned().unwrap_or_else(Span::detached))]
     pub fn enter_scope<'b>(
         &'b mut self,
         engine: &mut Engine,

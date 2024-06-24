@@ -182,7 +182,10 @@ pub fn compile_closure(
         let const_id = compiler.const_(Func::from(closure));
         if let Some(output) = output {
             compiler.copy(closure_span, const_id, output.clone());
-            Ok(output.try_into().unwrap())
+
+            // We can ignore the error since if we're writing to a `Joiner`,
+            // then the value isn't used either way.
+            Ok(output.try_into().unwrap_or(ReadableGuard::None))
         } else {
             Ok(const_id.into())
         }
@@ -190,7 +193,10 @@ pub fn compile_closure(
         let closure_id = compiler.closure(compiled);
         if let Some(output) = output {
             compiler.instantiate(closure_span, closure_id, output.clone());
-            Ok(output.try_into().unwrap())
+
+            // We can ignore the error since if we're writing to a `Joiner`,
+            // then the value isn't used either way.
+            Ok(output.try_into().unwrap_or(ReadableGuard::None))
         } else {
             let reg = compiler.allocate();
             compiler.instantiate(closure_span, closure_id, reg.clone());

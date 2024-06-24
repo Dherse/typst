@@ -2731,6 +2731,7 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
+ "rayon",
  "subsetter",
  "svg2pdf",
  "ttf-parser",

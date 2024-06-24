@@ -13,7 +13,7 @@ use crate::foundations::{
 };
 use crate::lang::closure::Closure;
 use crate::syntax::Span;
-use crate::utils::{LazyHash, Static};
+use crate::utils::Static;
 
 #[doc(inline)]
 pub use typst_macros::func;
@@ -148,7 +148,7 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<LazyHash<Closure>>),
+    Closure(Closure),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -334,7 +334,7 @@ impl Func {
 
 impl From<Closure> for Func {
     fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
+        Repr::Closure(closure).into()
     }
 }
 

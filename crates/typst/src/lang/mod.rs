@@ -16,7 +16,6 @@ use ecow::EcoString;
 use interpreter::{run, ControlFlow, Vm};
 use typst_macros::Cast;
 use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span};
-use typst_utils::LazyHash;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
@@ -162,13 +161,14 @@ pub fn eval_string(
 /// Call the function in the context with the arguments.
 #[comemo::memoize(
     // Memoize only if the closure is large and if it is not being traced.
-    enabled = closure.inner.compiled.instructions.len() > 250 &&
-        closure.inner.compiled.span.id().and_then(|id| traced.get(id)).is_none(),
+    enabled = {
+        closure.inner.compiled.span.id().and_then(|id| traced.get(id)).is_none()
+    },
 )]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
-    closure: &LazyHash<Closure>,
+    closure: &Closure,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
     traced: Tracked<Traced>,
@@ -197,22 +197,9 @@ pub fn run_module(
     display: bool,
 ) -> SourceResult<Module> {
     const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
-    let (output, scope) = if module.inner.registers <= 4 {
-        let mut storage = [NONE; 4];
-        run_module_internal(module, engine, context, &mut storage, true, display)?
-    } else if module.inner.registers <= 8 {
-        let mut storage = [NONE; 8];
-        run_module_internal(module, engine, context, &mut storage, true, display)?
-    } else if module.inner.registers <= 16 {
-        let mut storage = [NONE; 16];
-        run_module_internal(module, engine, context, &mut storage, true, display)?
-    } else if module.inner.registers <= 32 {
-        let mut storage = [NONE; 32];
-        run_module_internal(module, engine, context, &mut storage, true, display)?
-    } else {
-        let mut storage = vec![NONE; module.inner.registers];
-        run_module_internal(module, engine, context, &mut storage, true, display)?
-    };
+    let mut storage = vec![NONE; module.inner.registers];
+    let (output, scope) =
+        run_module_internal(module, engine, context, &mut storage, true, display)?;
 
     let name = module.inner.name.clone().unwrap_or(EcoString::inline("anonymous"));
     Ok(Module::new(name, scope.unwrap()).with_content(output.display()))
@@ -227,22 +214,9 @@ pub fn run_module_as_eval(
     display: bool,
 ) -> SourceResult<Value> {
     const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
-    let (output, _) = if module.inner.registers <= 4 {
-        let mut storage = [NONE; 4];
-        run_module_internal(module, engine, context, &mut storage, false, display)?
-    } else if module.inner.registers <= 8 {
-        let mut storage = [NONE; 8];
-        run_module_internal(module, engine, context, &mut storage, false, display)?
-    } else if module.inner.registers <= 16 {
-        let mut storage = [NONE; 16];
-        run_module_internal(module, engine, context, &mut storage, false, display)?
-    } else if module.inner.registers <= 32 {
-        let mut storage = [NONE; 32];
-        run_module_internal(module, engine, context, &mut storage, false, display)?
-    } else {
-        let mut storage = vec![NONE; module.inner.registers];
-        run_module_internal(module, engine, context, &mut storage, false, display)?
-    };
+    let mut storage = vec![NONE; module.inner.registers];
+    let (output, _) =
+        run_module_internal(module, engine, context, &mut storage, false, display)?;
 
     Ok(output)
 }
@@ -343,16 +317,7 @@ fn run_closure(
     args: Args,
 ) -> SourceResult<Value> {
     const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
-    if closure.inner.compiled.registers <= 4 {
-        let mut storage = [NONE; 4];
-        run_closure_internal(func, closure, engine, context, args, &mut storage)
-    } else if closure.inner.compiled.registers <= 8 {
-        let mut storage = [NONE; 8];
-        run_closure_internal(func, closure, engine, context, args, &mut storage)
-    } else if closure.inner.compiled.registers <= 16 {
-        let mut storage = [NONE; 16];
-        run_closure_internal(func, closure, engine, context, args, &mut storage)
-    } else if closure.inner.compiled.registers <= 32 {
+    if closure.inner.compiled.registers <= 32 {
         let mut storage = [NONE; 32];
         run_closure_internal(func, closure, engine, context, args, &mut storage)
     } else {
