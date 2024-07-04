@@ -444,7 +444,7 @@ fn field_ref<'a>(
         if let Some(element) = func.element();
         if let Some(id) = element.field_id(field);
         let styles = context.styles();
-        if let Some(value) = element.field_from_styles(
+        if let Ok(value) = element.field_from_styles(
             id,
             styles.as_ref().map(|&s| s).unwrap_or_default(),
         );

@@ -138,11 +138,6 @@ impl Content {
         self.inner.label
     }
 
-    /// Set the label of the content.
-    pub fn set_label(&mut self, label: Label) {
-        self.make_mut().label = Some(label);
-    }
-
     /// Attach a label to the content.
     pub fn labelled(mut self, label: Label) -> Self {
         self.set_label(label);

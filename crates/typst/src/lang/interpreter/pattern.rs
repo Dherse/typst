@@ -131,7 +131,10 @@ fn destructure_array(
         if i < len {
             Ok(())
         } else {
-            bail!(span, "not enough elements to destructure")
+            bail!(
+                span, "not enough elements to destructure";
+                hint: "the provided array has a length of {len}",
+            );
         }
     };
 
