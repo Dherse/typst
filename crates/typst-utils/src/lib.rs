@@ -7,13 +7,13 @@ mod macros;
 mod bitset;
 mod deferred;
 mod hash;
-mod pico;
+mod pico_str;
 mod scalar;
 
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
 pub use self::hash::LazyHash;
-pub use self::pico::PicoStr;
+pub use self::pico_str::PicoStr;
 pub use self::scalar::Scalar;
 
 use std::fmt::{Debug, Formatter};

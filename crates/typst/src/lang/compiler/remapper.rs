@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 use indexmap::IndexMap;
 use typst_syntax::Span;
@@ -16,66 +17,54 @@ use crate::utils::hash128;
 
 use super::{DynamicImport, DynamicModule, RegisterGuard};
 
-pub struct Remapper<K, V> {
-    values: IndexMap<u128, (K, V)>,
-    map: HashMap<K, u128>,
+pub trait RemapperImpl<K, V>: Default {
+    fn insert(&mut self, value: V) -> K;
+    fn get(&self, key: &K) -> Option<&V>;
+    fn get_index(&self, index: usize) -> &V;
+    fn into_values(&self) -> Vec<V::CompiledValue>
+    where
+        V: Clone + IntoCompiledValue;
 }
 
-impl<K: RemapperKey, V: Hash> Default for Remapper<K, V> {
+pub struct Remapper<K, V, Impl = UniqueRemapper<K, V>> {
+    inner: Impl,
+    _ty: PhantomData<(K, V)>,
+}
+
+impl<K, V, Impl: RemapperImpl<K, V>> Default for Remapper<K, V, Impl> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K: RemapperKey, V: Hash> Remapper<K, V> {
+impl<K, V, Impl: RemapperImpl<K, V>> Remapper<K, V, Impl> {
     /// Creates a new empty remapper.
     pub fn new() -> Self {
-        Self { values: IndexMap::new(), map: HashMap::new() }
+        Self { inner: Impl::default(), _ty: PhantomData }
     }
 
     /// Inserts a new value into the remapper.
     pub fn insert(&mut self, value: V) -> K {
-        let hash = hash128(&value);
-
-        let len = self.values.len();
-        let (key, _) = self.values.entry(hash).or_insert_with(|| {
-            let key = K::from_raw(len as u16);
-            (key, value)
-        });
-
-        self.map.insert(key.clone(), hash);
-
-        key.clone()
+        self.inner.insert(value)
     }
 
     pub fn get(&self, key: &K) -> Option<&V> {
-        let hash = self.map.get(key)?;
-        self.values.get(hash).map(|(_, v)| v)
+        self.inner.get(key)
     }
 
     pub fn get_index(&self, index: usize) -> &V {
-        self.values
-            .get_index(index)
-            .map(|(_, (_, v))| v)
-            .expect("index out of bounds")
+        self.inner.get_index(index)
     }
 
     pub fn into_values(&self) -> Vec<V::CompiledValue>
     where
         V: Clone + IntoCompiledValue,
     {
-        let mut out = Vec::from_iter(
-            self.values.values().map(|(_, v)| v.clone().into_compiled_value()),
-        );
-
-        // A vec will grow to the next power of two, so we shrink it to the actual size.
-        out.shrink_to_fit();
-
-        out
+        self.inner.into_values()
     }
 }
 
-pub trait RemapperKey: Clone + Hash + Eq {
+pub trait RemapperKey: Clone + Eq {
     fn as_raw(&self) -> u16;
 
     fn from_raw(raw: u16) -> Self;
@@ -238,5 +227,98 @@ impl IntoCompiledValue for DynamicImport {
             location: self.location.into_compiled_value(),
             span: self.span,
         }
+    }
+}
+
+
+pub struct UniqueRemapper<K: RemapperKey + Hash, V: Hash> {
+    values: IndexMap<u128, (K, V)>,
+    map: HashMap<K, u128>,
+}
+
+impl<K: RemapperKey + Hash, V: Hash> Default for UniqueRemapper<K, V> {
+    fn default() -> Self {
+        Self {
+            values: IndexMap::default(),
+            map: HashMap::default(),
+        }
+    }
+}
+
+impl<K: RemapperKey + Hash, V: Hash> RemapperImpl<K, V> for UniqueRemapper<K, V> {
+    fn insert(&mut self, value: V) -> K {
+        let hash = hash128(&value);
+        let len = self.values.len();
+        let (key, _) = self.values.entry(hash).or_insert_with(|| {
+            let key = K::from_raw(len as u16);
+            (key, value)
+        });
+
+        self.map.insert(key.clone(), hash);
+
+        key.clone()
+    }
+
+    fn get(&self, key: &K) -> Option<&V> {
+        let hash = self.map.get(key)?;
+        self.values.get(hash).map(|(_, v)| v)
+    }
+
+    fn get_index(&self, index: usize) -> &V {
+        self.values
+            .get_index(index)
+            .map(|(_, (_, v))| v)
+            .expect("index out of bounds")
+    }
+
+    fn into_values(&self) -> Vec<<V>::CompiledValue>
+    where
+        V: Clone + IntoCompiledValue {
+        let mut out = Vec::from_iter(
+            self.values.values().map(|(_, v)| v.clone().into_compiled_value()),
+        );
+
+        // A vec will grow to the next power of two, so we shrink it to the actual size.
+        out.shrink_to_fit();
+
+        out
+    }
+
+}
+
+pub struct SimpleRemapper<K: RemapperKey, V> {
+    values: Vec<V>,
+    _keys: PhantomData<K>,
+}
+
+impl<K: RemapperKey, V> Default for SimpleRemapper<K, V> {
+    fn default() -> Self {
+        Self {
+            values: vec![],
+            _keys: PhantomData,
+        }
+    }
+}
+
+impl<K: RemapperKey, V> RemapperImpl<K, V> for SimpleRemapper<K, V> {
+    fn insert(&mut self, value: V) -> K {
+        let key = K::from_raw(self.values.len() as u16);
+        self.values.push(value);
+        key
+    }
+
+    fn get(&self, key: &K) -> Option<&V> {
+        self.values.get(key.as_raw() as usize)
+    }
+
+    fn get_index(&self, index: usize) -> &V {
+        self.values.get(index).expect("index out of bounds")
+    }
+
+    fn into_values(&self) -> Vec<<V>::CompiledValue>
+    where
+        V: Clone + IntoCompiledValue
+    {
+        self.values.iter().map(|v| v.clone().into_compiled_value()).collect()
     }
 }

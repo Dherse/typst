@@ -11,6 +11,7 @@ use crate::lang::operands::Readable;
 use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
 
 impl CompileTopLevel for ast::Code<'_> {
+    #[typst_macros::time(name = "code compile", span = self.span())]
     fn compile_top_level(
         &self,
         compiler: &mut Compiler<'_>,

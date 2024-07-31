@@ -16,6 +16,7 @@ use super::{
 };
 
 impl CompileTopLevel for ast::Markup<'_> {
+    #[typst_macros::time(name = "markup compile", span = self.span())]
     fn compile_top_level(
         &self,
         compiler: &mut Compiler<'_>,

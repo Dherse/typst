@@ -12,6 +12,7 @@ use super::{
 };
 
 impl CompileTopLevel for ast::Math<'_> {
+    #[typst_macros::time(name = "math compile", span = self.span())]
     fn compile_top_level(
         &self,
         compiler: &mut Compiler<'_>,

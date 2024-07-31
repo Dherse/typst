@@ -152,7 +152,6 @@ macro_rules! opcode_struct {
     ) => {
         $(#[$sattr])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[repr(packed)]
         pub struct $name {
             $(
                 $(

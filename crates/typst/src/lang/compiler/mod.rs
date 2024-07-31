@@ -71,15 +71,15 @@ pub struct Compiler<'lib> {
     /// The constant remapper.
     constants: Remapper<Constant, Value>,
     /// The label remapper.
-    labels: Remapper<LabelId, Label>,
+    labels: Remapper<LabelId, Label, SimpleRemapper<LabelId, Label>>,
     /// The span remapper.
-    spans: Remapper<SpanId, Span>,
+    spans: Remapper<SpanId, Span, SimpleRemapper<SpanId, Span>>,
     /// The access remapper.
-    accesses: Remapper<AccessId, Access>,
+    accesses: Remapper<AccessId, Access, SimpleRemapper<AccessId, Access>>,
     /// The pattern remapper.
-    patterns: Remapper<PatternId, Pattern>,
+    patterns: Remapper<PatternId, Pattern, SimpleRemapper<PatternId, Pattern>>,
     /// Dynamic module remapper.
-    modules: Remapper<ModuleId, DynamicModule>,
+    modules: Remapper<ModuleId, DynamicModule, SimpleRemapper<ModuleId, DynamicModule>>,
     /// The closure remapper.
     closures: Remapper<ClosureId, CompiledClosure>,
     /// Whether we are in fact in a contextual rather than a function scope.
@@ -345,6 +345,7 @@ impl<'lib> Compiler<'lib> {
     }
 
     /// Enter a new unspecified scope (i.e `{}`, body of if-else, etc.).
+    #[typst_macros::time(name = "enter scope", span = span)]
     pub fn enter(
         &mut self,
         engine: &mut Engine,
@@ -400,6 +401,7 @@ impl<'lib> Compiler<'lib> {
         Ok(())
     }
 
+    #[typst_macros::time(name = "finish closure", span = span)]
     pub fn finish_closure(
         mut self,
         span: Span,
@@ -462,6 +464,7 @@ impl<'lib> Compiler<'lib> {
         })
     }
 
+    #[typst_macros::time(name = "finish module", span = span)]
     pub fn finish_module(
         mut self,
         span: Span,
@@ -513,6 +516,11 @@ impl<'lib> Compiler<'lib> {
     /// Remaps jump instructions such that they're relative to the scope (if needed).
     /// This creates a table for each jump instruction to the instruction it jumps to.
     fn remap_jumps(&self) -> Vec<usize> {
+        // If there are no jumps, we can return early.
+        if self.jumps == 0 {
+            return Vec::new();
+        }
+
         let mut iter = self.instructions.iter();
         let mut jumps = vec![usize::MAX; self.jumps as usize];
 
@@ -553,10 +561,6 @@ impl<'lib> Compiler<'lib> {
         if self.jumps > 0 {
             let mut i = self.jumps as usize;
             remap(&mut iter, &mut jumps, &mut i);
-        }
-
-        if jumps.iter().any(|i| *i == usize::MAX) {
-            unreachable!("unresolved jumps: {:?}", jumps);
         }
 
         jumps
