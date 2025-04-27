@@ -1,11 +1,12 @@
 use crate::vm::instructions::{FuncCall, MethodCall, MutMethodCall, Reverse};
-use crate::vm::{Readable, ArgSegment};
+use crate::vm::{ArgSegment, Readable};
 
 use super::pattern::AccessCompile;
 use super::{Compile, Compiler};
 
 use typst_library::diag::SourceResult;
 use typst_syntax::ast::{self, AstNode};
+use typst_utils::PicoStr;
 
 impl Compile for ast::FuncCall<'_> {
     fn compile(self, compiler: &mut Compiler) -> SourceResult<Readable> {
@@ -108,17 +109,11 @@ impl Compile for ast::FuncCall<'_> {
 }
 
 pub(crate) trait ArgsExt {
-    fn compile(
-        self,
-        compiler: &mut Compiler,
-    ) -> SourceResult<Vec<ArgSegment>>;
+    fn compile(self, compiler: &mut Compiler) -> SourceResult<Vec<ArgSegment>>;
 }
 
 impl ArgsExt for ast::Args<'_> {
-    fn compile(
-        self,
-        compiler: &mut Compiler,
-    ) -> SourceResult<Vec<ArgSegment>> {
+    fn compile(self, compiler: &mut Compiler) -> SourceResult<Vec<ArgSegment>> {
         let mut args = Vec::with_capacity(self.items().count());
 
         // We cannot reverse although it would make sense because of eval order!
@@ -138,7 +133,7 @@ impl ArgsExt for ast::Args<'_> {
                     args.push(ArgSegment::Named(
                         arg.span(),
                         named.expr().span(),
-                        named.name().get().clone().into(),
+                        PicoStr::intern(named.name().get()),
                         readable,
                     ));
                 }

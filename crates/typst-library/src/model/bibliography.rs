@@ -17,7 +17,7 @@ use hayagriva::{
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
 use typst_syntax::{Span, Spanned};
-use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{pico, Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::{Engine, Sink};
@@ -131,7 +131,7 @@ pub struct BibliographyElem {
     /// - A path string to a [CSL file](https://citationstyles.org/). For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which a CSL style should be decoded.
-    #[parse(match args.named::<Spanned<CslSource>>("style")? {
+    #[parse(match args.named::<Spanned<CslSource>>(pico!("style"))? {
         Some(source) => Some(CslStyle::load(engine.world, source)?),
         None => None,
     })]

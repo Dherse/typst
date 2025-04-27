@@ -1,4 +1,5 @@
 use typst_syntax::Spanned;
+use typst_utils::pico;
 
 use crate::diag::{error, At, HintedString, SourceResult};
 use crate::engine::Engine;
@@ -99,7 +100,7 @@ pub struct CiteElem {
     /// - A path string to a [CSL file](https://citationstyles.org/). For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which a CSL style should be decoded.
-    #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
+    #[parse(match args.named::<Spanned<Smart<CslSource>>>(pico!("style"))? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
             CslStyle::load(engine.world, Spanned::new(source, span))?
         )),

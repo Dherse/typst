@@ -27,7 +27,8 @@ macro_rules! unary {
             type Output = Value;
 
             fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Value> {
-                $ops(vm.get(self.rhs, self.span)?).at(self.span)
+                let value = vm.get(self.rhs, self.span)?.into_owned();
+                $ops(value).at(self.span)
             }
 
             fn take_slot(&mut self, slot: usize) {

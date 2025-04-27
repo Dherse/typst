@@ -13,13 +13,11 @@ mod rules;
 mod state;
 mod unary;
 
-pub use self::access::{MutAccess, AccessSegment};
+pub use self::access::{AccessSegment, MutAccess};
+pub use self::call::ArgSegment;
 pub use self::destruct::{Pattern, PatternItem};
 pub use self::flow::Iterable;
-pub use self::call::ArgSegment;
-pub use self::instructions::{
-    FlowOp, Instruction, Instructions, Noop,
-};
+pub(crate) use self::instructions::{FlowOp, Instruction, Instructions, Noop};
 use self::joiner::Joiner;
 pub use self::state::ControlFlow;
 use self::state::{Flow, State};
@@ -40,7 +38,7 @@ use crate::compiler::{Local, Pointer, PointerRange};
 /// The maximum number of loop iterations.
 const MAX_ITERATIONS: usize = 10_000;
 
-pub struct Vm<'a> {
+pub(crate) struct Vm<'a> {
     base: &'a Library,
     instructions: &'a [Instructions],
     index: usize,
@@ -157,7 +155,7 @@ impl Vm<'_> {
         }
 
         let output = if let Some((span, readable)) = self.output {
-            Some(self.get(readable, span)?)
+            Some(self.get(readable, span)?.into_owned())
         } else if !self.joiner.is_empty() {
             Some(mem::take(&mut self.joiner).collect(&mut self.engine, self.context)?)
         } else if self.state.is_display() && !self.state.is_looping() {
@@ -220,19 +218,19 @@ impl Vm<'_> {
         self.stack.pop().ok_or_else(pop_empty_stack)
     }
 
-    pub fn get(&mut self, value: Readable, span: Span) -> SourceResult<Value> {
+    pub fn get(&mut self, value: Readable, span: Span) -> SourceResult<Cow<Value>> {
         Ok(match value {
-            Readable::None | Readable::Empty => Value::None,
-            Readable::Stack => self.pop().at(span)?,
+            Readable::None | Readable::Empty => Cow::Owned(Value::None),
+            Readable::Stack => Cow::Owned(self.pop().at(span)?),
             Readable::Slot(slot) => {
                 #[cfg(debug_assertions)]
                 assert!(!self.lock, "attempting to read from a locked VM");
 
-                let Some(value) = self.slots.get(slot).cloned() else {
+                let Some(value) = self.slots.get(slot) else {
                     return Err(slot_out_of_bounds(slot)).at(span);
                 };
 
-                value
+                Cow::Borrowed(value)
             }
             Readable::Take(slot) => {
                 #[cfg(debug_assertions)]
@@ -242,55 +240,11 @@ impl Vm<'_> {
                     return Err(slot_out_of_bounds(slot)).at(span);
                 };
 
-                mem::take(value)
-            }
-            Readable::Const(const_) => {
-                let Some(value) = self.constants.get(const_).cloned() else {
-                    return Err(const_out_of_bounds(const_)).at(span);
-                };
-
-                value
-            }
-            Readable::Bool(val) => Value::Bool(val),
-            Readable::Int(val) => Value::Int(val),
-            Readable::Float(val) => Value::Float(val.get()),
-            Readable::Auto => Value::Auto,
-            Readable::Std(idx) => self
-                .base
-                .global
-                .field_by_index(idx, (&mut self.engine, span))
-                .at(span)?
-                .clone(),
-            Readable::Math(idx) => self
-                .base
-                .math
-                .field_by_index(idx, (&mut self.engine, span))
-                .at(span)?
-                .clone(),
-        })
-    }
-
-    pub fn get_ref(&self, value: Readable) -> HintedStrResult<Cow<Value>> {
-        Ok(match value {
-            Readable::None | Readable::Empty => Cow::Owned(Value::None),
-            Readable::Stack => self
-                .stack
-                .last()
-                .ok_or_else::<HintedString, _>(pop_empty_stack)
-                .map(Cow::Borrowed)?,
-            Readable::Slot(slot) | Readable::Take(slot) => {
-                #[cfg(debug_assertions)]
-                assert!(!self.lock, "attempting to read from a locked VM");
-
-                let Some(value) = self.slots.get(slot) else {
-                    return Err(slot_out_of_bounds(slot));
-                };
-
-                Cow::Borrowed(value)
+                Cow::Owned(mem::take(value))
             }
             Readable::Const(const_) => {
                 let Some(value) = self.constants.get(const_) else {
-                    return Err(const_out_of_bounds(const_));
+                    return Err(const_out_of_bounds(const_)).at(span);
                 };
 
                 Cow::Borrowed(value)
@@ -299,12 +253,19 @@ impl Vm<'_> {
             Readable::Int(val) => Cow::Owned(Value::Int(val)),
             Readable::Float(val) => Cow::Owned(Value::Float(val.get())),
             Readable::Auto => Cow::Owned(Value::Auto),
-            Readable::Std(idx) => {
-                self.base.global.field_by_index(idx, ()).map(Cow::Borrowed)?
-            }
-            Readable::Math(idx) => {
-                self.base.math.field_by_index(idx, ()).map(Cow::Borrowed)?
-            }
+            Readable::Std(idx) => self
+                .base
+                .global
+                .field_by_index(idx, (&mut self.engine, span))
+                .map(Cow::Borrowed)
+                .at(span)?,
+            Readable::Math(idx) => self
+                .base
+                .math
+                .field_by_index(idx, (&mut self.engine, span))
+                .map(Cow::Borrowed)
+                .at(span)?
+                .clone(),
         })
     }
 

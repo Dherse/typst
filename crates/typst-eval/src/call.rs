@@ -15,7 +15,7 @@ use typst_library::routines::Routines;
 use typst_library::World;
 use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, PicoStr};
 
 use crate::{call_method_mut, is_mutating_method, Access, Eval, FlowEvent, Route, Vm};
 
@@ -89,7 +89,7 @@ impl Eval for ast::Args<'_> {
                     let expr = named.expr();
                     items.push(Arg {
                         span,
-                        name: Some(named.name().get().clone().into()),
+                        name: Some(PicoStr::intern(named.name().get())),
                         value: Spanned::new(expr.eval(vm)?, expr.span()),
                     });
                 }
@@ -105,7 +105,7 @@ impl Eval for ast::Args<'_> {
                     Value::Dict(dict) => {
                         items.extend(dict.into_iter().map(|(key, value)| Arg {
                             span,
-                            name: Some(key),
+                            name: Some(PicoStr::intern(&key)),
                             value: Spanned::new(value, span),
                         }));
                     }

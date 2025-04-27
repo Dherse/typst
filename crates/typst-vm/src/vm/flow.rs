@@ -1,5 +1,5 @@
 use typst_library::diag::{bail, At, SourceResult};
-use typst_library::foundations::{array, Array, IntoValue, Str, Type, Value};
+use typst_library::foundations::{array, IntoValue, Str, Value};
 use typst_syntax::Span;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -78,7 +78,11 @@ impl Instruction for JumpConditional {
         vm: &mut super::Vm,
         _: Option<&mut Iterable>,
     ) -> SourceResult<Self::Output> {
-        let value = vm.get(self.condition, self.span)?.cast::<bool>().at(self.span)?;
+        let value = vm
+            .get(self.condition, self.span)?
+            .into_owned()
+            .cast::<bool>()
+            .at(self.span)?;
 
         // Check for convergence (i.e value is always true)
         if value {
@@ -133,7 +137,7 @@ impl Instruction for Iter {
         vm: &mut super::Vm,
         _: Option<&mut Iterable>,
     ) -> SourceResult<Self::Output> {
-        let iterable = vm.get(self.iterable, self.span)?;
+        let iterable = vm.get(self.iterable, self.span)?.into_owned();
 
         macro_rules! iter {
             (for $iterable:expr) => {{
@@ -242,7 +246,6 @@ pub enum Iterable<'a> {
     Bytes(std::slice::Iter<'a, u8>),
     /// An iterator over the key-value pairs of a dictionary
     Dict(indexmap::map::Iter<'a, Str, Value>),
-    Borrowed(&'a mut Self),
 }
 
 impl<'a> Iterable<'a> {
@@ -254,7 +257,6 @@ impl<'a> Iterable<'a> {
             Iterable::Dict(iter) => {
                 iter.next().map(|(key, value)| IteratorValue::Dict(key, value))
             }
-            Self::Borrowed(borrowed) => borrowed.next(),
         }
     }
 }
@@ -289,17 +291,6 @@ pub enum IteratorValue<'a> {
     Str(&'a str),
     Bytes(u8),
     Dict(&'a Str, &'a Value),
-}
-
-impl IteratorValue<'_> {
-    pub fn type_name(&self) -> &str {
-        match self {
-            IteratorValue::Array(value) => value.ty().long_name(),
-            IteratorValue::Str(_) => Type::of::<Str>().long_name(),
-            IteratorValue::Bytes(_) => "bytes",
-            IteratorValue::Dict(_, _) => Type::of::<Array>().long_name(),
-        }
-    }
 }
 
 impl IntoValue for IteratorValue<'_> {

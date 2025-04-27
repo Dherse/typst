@@ -1,3 +1,5 @@
+use typst_utils::pico;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -162,9 +164,9 @@ pub struct SquareElem {
     /// In contrast to `size`, this can be relative to the parent container's
     /// width.
     #[parse(
-        let size = args.named::<Smart<Length>>("size")?.map(|s| s.map(Rel::from));
+        let size = args.named::<Smart<Length>>(pico!("size"))?.map(|s| s.map(Rel::from));
         match size {
-            None => args.named("width")?,
+            None => args.named(pico!("width"))?,
             size => size,
         }
     )]
@@ -175,7 +177,7 @@ pub struct SquareElem {
     /// In contrast to `size`, this can be relative to the parent container's
     /// height.
     #[parse(match size {
-        None => args.named("height")?,
+        None => args.named(pico!("height"))?,
         size => size.map(Into::into),
     })]
     pub height: Sizing,
@@ -321,10 +323,10 @@ pub struct CircleElem {
     /// width.
     #[parse(
         let size = args
-            .named::<Smart<Length>>("radius")?
+            .named::<Smart<Length>>(pico!("radius"))?
             .map(|s| s.map(|r| 2.0 * Rel::from(r)));
         match size {
-            None => args.named("width")?,
+            None => args.named(pico!("width"))?,
             size => size,
         }
     )]
@@ -336,7 +338,7 @@ pub struct CircleElem {
     /// In contrast to `radius`, this can be relative to the parent container's
     /// height.
     #[parse(match size {
-        None => args.named("height")?,
+        None => args.named(pico!("height"))?,
         size => size.map(Into::into),
     })]
     pub height: Sizing,

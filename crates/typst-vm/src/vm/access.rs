@@ -36,7 +36,7 @@ impl Instruction for FieldAccess {
         vm: &mut Vm,
         _: Option<&mut super::flow::Iterable>,
     ) -> SourceResult<Self::Output> {
-        let value = vm.get(self.target, self.target_span)?;
+        let value = vm.get(self.target, self.target_span)?.into_owned();
 
         let err = match value
             .field(&self.field, (&mut vm.engine, self.field_span))

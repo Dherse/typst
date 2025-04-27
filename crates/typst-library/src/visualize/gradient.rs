@@ -6,6 +6,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
+use typst_utils::pico;
 
 use crate::diag::{bail, SourceResult};
 use crate::foundations::{
@@ -228,9 +229,9 @@ impl Gradient {
         #[external]
         angle: Angle,
     ) -> SourceResult<Gradient> {
-        let angle = if let Some(angle) = args.named::<Angle>("angle")? {
+        let angle = if let Some(angle) = args.named::<Angle>(pico!("angle"))? {
             angle
-        } else if let Some(dir) = args.named::<Dir>("dir")? {
+        } else if let Some(dir) = args.named::<Dir>(pico!("dir"))? {
             match dir {
                 Dir::LTR => Angle::rad(0.0),
                 Dir::RTL => Angle::rad(PI),

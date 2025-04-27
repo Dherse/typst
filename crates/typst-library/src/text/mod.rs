@@ -40,6 +40,7 @@ use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
 use typst_syntax::Spanned;
+use typst_utils::pico;
 use typst_utils::singleton;
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
@@ -157,7 +158,7 @@ pub struct TextElem {
     /// 分别设置“中文”和English字体
     /// ```
     #[parse({
-        let font_list: Option<Spanned<FontList>> = args.named("font")?;
+        let font_list: Option<Spanned<FontList>> = args.named(pico!("font"))?;
         if let Some(list) = &font_list {
             check_font_list(engine, list);
         }
@@ -256,7 +257,7 @@ pub struct TextElem {
     /// #set text(size: 20pt)
     /// very #text(1.5em)[big] text
     /// ```
-    #[parse(args.named_or_find("size")?)]
+    #[parse(args.named_or_find(pico!("size"))?)]
     #[fold]
     #[default(TextSize(Abs::pt(11.0).into()))]
     #[resolve]
@@ -270,7 +271,7 @@ pub struct TextElem {
     /// This text is red.
     /// ```
     #[parse({
-        let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
+        let paint: Option<Spanned<Paint>> = args.named_or_find(pico!("fill"))?;
         if let Some(paint) = &paint {
             if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(

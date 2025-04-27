@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Content, NativeElement};
 use typst_library::math::{AttachElem, EquationElem, FracElem, LrElem, RootElem};
@@ -24,7 +26,11 @@ impl Instruction for Equation {
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
         // Obtain the value.
-        let body = vm.get(self.body, self.span)?.display().spanned(self.span);
+        let body = vm
+            .get(self.body, self.span)?
+            .into_owned()
+            .display()
+            .spanned(self.span);
 
         // Make the value into an equation.
         Ok(EquationElem::new(body).with_block(self.block).pack())
@@ -72,13 +78,19 @@ impl Instruction for Delimited {
         // Obtain the values.
         let close = vm
             .get(self.close, self.close_span)?
+            .into_owned()
             .display()
             .spanned(self.close_span);
         let body = vm
             .get(self.body, self.body_span)?
+            .into_owned()
             .cast::<Content>()
             .at(self.body_span)?;
-        let open = vm.get(self.open, self.open_span)?.display().spanned(self.open_span);
+        let open = vm
+            .get(self.open, self.open_span)?
+            .into_owned()
+            .display()
+            .spanned(self.open_span);
 
         // Make the value into an LrElem.
         Ok(LrElem::new(open + body + close).pack())
@@ -156,17 +168,20 @@ impl Instruction for AttachRepr {
         // Obtain the base, top, and bottom.
         let bottom = self
             .bottom
-            .map(|bottom| vm.get(bottom, self.bottom_span))
+            .map(|bottom| vm.get(bottom, self.bottom_span).map(Cow::into_owned))
             .transpose()?;
         let primes = self
             .primes
-            .map(|primes| vm.get(primes, self.primes_span))
+            .map(|primes| vm.get(primes, self.primes_span).map(Cow::into_owned))
             .transpose()?;
-        let top = self.top.map(|top| vm.get(top, self.top_span)).transpose()?;
-        let base = vm.get(self.base, self.base_span)?;
+        let top = self
+            .top
+            .map(|top| vm.get(top, self.top_span).map(Cow::into_owned))
+            .transpose()?;
+        let base = vm.get(self.base, self.base_span)?.into_owned();
 
         // Make the value into an attach.
-        let mut value = AttachElem::new(base.clone().display());
+        let mut value = AttachElem::new(base.display());
 
         if let Some(top) = top {
             value.push_t(Some(top.display().spanned(self.top_span)));
@@ -222,9 +237,10 @@ impl Instruction for Frac {
         // Obtain the numerator & denominator
         let denom = vm
             .get(self.denom, self.denom_span)?
+            .into_owned()
             .display()
             .spanned(self.denom_span);
-        let num = vm.get(self.num, self.num_span)?.display().spanned(self.num_span);
+        let num = vm.get(self.num, self.num_span)?.into_owned().display().spanned(self.num_span);
 
         // Write the value to the output.
         Ok(FracElem::new(num, denom).pack())
@@ -260,8 +276,8 @@ impl Instruction for Root {
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
         // Obtain the degree and radicand.
-        let degree = self.degree.map(|d| vm.get(d, self.degree_span)).transpose()?;
-        let radicand = vm.get(self.radicand, self.radicand_span)?;
+        let degree = self.degree.map(|d| vm.get(d, self.degree_span).map(Cow::into_owned)).transpose()?;
+        let radicand = vm.get(self.radicand, self.radicand_span)?.into_owned();
 
         // Make the value into a root.
         let mut value = RootElem::new(radicand.display());

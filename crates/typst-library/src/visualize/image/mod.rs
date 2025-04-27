@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use typst_syntax::{Span, Spanned};
-use typst_utils::LazyHash;
+use typst_utils::{pico, LazyHash};
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
@@ -152,7 +152,7 @@ pub struct ImageElem {
     ///
     /// ICC profiles define how to interpret the colors in an image. When set
     /// to `{auto}`, Typst will try to extract an ICC profile from the image.
-    #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
+    #[parse(match args.named::<Spanned<Smart<DataSource>>>(pico!("icc"))? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
             let data = Spanned::new(&source, span).load(engine.world)?;
             Derived::new(source, data)

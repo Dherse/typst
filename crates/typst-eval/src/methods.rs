@@ -3,6 +3,7 @@
 use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Args, Str, Type, Value};
 use typst_syntax::Span;
+use typst_utils::pico;
 
 /// Whether a specific method is mutating.
 pub(crate) fn is_mutating_method(method: &str) -> bool {
@@ -34,7 +35,7 @@ pub(crate) fn call_method_mut(
             }
             "remove" => {
                 output = array
-                    .remove(args.expect("index")?, args.named("default")?)
+                    .remove(args.expect("index")?, args.named(pico!("default"))?)
                     .at(span)?
             }
             _ => return missing(),
@@ -44,7 +45,7 @@ pub(crate) fn call_method_mut(
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output =
-                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?
+                    dict.remove(args.expect("key")?, args.named(pico!("default"))?).at(span)?
             }
             _ => return missing(),
         },

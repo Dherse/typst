@@ -7,6 +7,7 @@ use typst_library::foundations::{
 };
 use typst_library::math::LrElem;
 use typst_syntax::{Span, Spanned};
+use typst_utils::{pico, PicoStr};
 
 use super::flow::Iterable;
 use super::{Instruction, MutAccess, Readable, Vm};
@@ -81,7 +82,7 @@ impl Instruction for Reverse {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ArgSegment {
     Single(Span, Span, Readable),
-    Named(Span, Span, Str, Readable),
+    Named(Span, Span, PicoStr, Readable),
     Spread(Span, Readable),
 }
 
@@ -154,7 +155,7 @@ impl Instruction for FuncCallRepr {
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
         vm.engine.route.check_call_depth().at(self.full_span)?;
 
-        let callee = vm.get(self.access, self.target_span)?;
+        let callee = vm.get(self.access, self.target_span)?.into_owned();
         let args = make_args(vm, &self.args)?;
 
         // TODO: remove this clone, use references
@@ -271,7 +272,7 @@ impl Instruction for MethodCallRepr {
         vm.engine.route.check_call_depth().at(self.full_span)?;
 
         let args = make_args(vm, &self.args);
-        let target = vm.get(self.access, self.target_span)?;
+        let target = vm.get(self.access, self.target_span)?.into_owned();
 
         let mut args = args?;
         let callee = get_method(
@@ -453,15 +454,15 @@ pub(crate) fn make_args(vm: &mut Vm, segments: &[ArgSegment]) -> SourceResult<Ar
     for segment in segments {
         match segment {
             ArgSegment::Single(span, value_span, readable) => {
-                let value = vm.get(*readable, *span)?;
+                let value = vm.get(*readable, *span)?.into_owned();
                 args.push(*span, *value_span, value);
             }
             ArgSegment::Named(span, value_span, name, readable) => {
-                let value = vm.get(*readable, *span)?;
-                args.push_named(*span, *value_span, name.clone(), value);
+                let value = vm.get(*readable, *span)?.into_owned();
+                args.push_named(*span, *value_span, *name, value);
             }
             ArgSegment::Spread(span, readable) => {
-                let value = vm.get(*readable, *span)?;
+                let value = vm.get(*readable, *span)?.into_owned();
                 match value {
                     Value::None => {}
                     Value::Array(array) => {
@@ -474,7 +475,7 @@ pub(crate) fn make_args(vm: &mut Vm, segments: &[ArgSegment]) -> SourceResult<Ar
                     Value::Dict(dict) => {
                         args.items.extend(dict.into_iter().map(|(key, value)| Arg {
                             span: *span,
-                            name: Some(key),
+                            name: Some(PicoStr::intern(&key)),
                             value: Spanned::new(value, *span),
                         }));
                     }
@@ -541,7 +542,7 @@ pub(crate) fn call_method_mut(
             }
             "remove" => {
                 output = array
-                    .remove(args.expect("index")?, args.named("default")?)
+                    .remove(args.expect("index")?, args.named(pico!("default"))?)
                     .at(span)?
             }
             _ => return missing(),
@@ -551,7 +552,7 @@ pub(crate) fn call_method_mut(
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output =
-                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?
+                    dict.remove(args.expect("key")?, args.named(pico!("default"))?).at(span)?
             }
             _ => return missing(),
         },

@@ -3,6 +3,7 @@ use std::ops::Add;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use typst_syntax::{Span, Spanned};
+use typst_utils::PicoStr;
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{
@@ -103,7 +104,7 @@ impl Args {
     }
 
     /// Push a positional argument.
-    pub fn push_named(&mut self, span: Span, value_span: Span, name: Str, value: Value) {
+    pub fn push_named(&mut self, span: Span, value_span: Span, name: PicoStr, value: Value) {
         self.items.push(Arg {
             span,
             name: Some(name),
@@ -161,19 +162,21 @@ impl Args {
     }
 
     /// The error message for missing arguments.
+    #[cold]
     fn missing_argument(&self, what: &str) -> SourceDiagnostic {
         for item in &self.items {
-            let Some(name) = item.name.as_deref() else { continue };
-            if name == what {
+            let Some(name) = item.name else { continue };
+            // this is an error path so resolving is fine.
+            if name.resolve().as_str() == what {
                 return error!(
                     item.span,
-                    "the argument `{what}` is positional";
-                    hint: "try removing `{}:`", name,
+                    "the argument `{}` is positional", what;
+                    hint: "try removing `{}:`", name.resolve(),
                 );
             }
         }
 
-        error!(self.span, "missing argument: {what}")
+        error!(self.span, "missing argument: {}", what)
     }
 
     /// Find and consume the first castable positional argument.
@@ -218,7 +221,7 @@ impl Args {
 
     /// Cast and remove the value for the given named argument, returning an
     /// error if the conversion fails.
-    pub fn named<T>(&mut self, name: &str) -> SourceResult<Option<T>>
+    pub fn named<T>(&mut self, name: PicoStr) -> SourceResult<Option<T>>
     where
         T: FromValue<Spanned<Value>>,
     {
@@ -227,7 +230,7 @@ impl Args {
         let mut i = 0;
         let mut found = None;
         while i < self.items.len() {
-            if self.items[i].name.as_deref() == Some(name) {
+            if self.items[i].name == Some(name) {
                 let value = self.items.remove(i).value;
                 let span = value.span;
                 found = Some(T::from_value(value).at(span)?);
@@ -239,7 +242,7 @@ impl Args {
     }
 
     /// Same as named, but with fallback to find.
-    pub fn named_or_find<T>(&mut self, name: &str) -> SourceResult<Option<T>>
+    pub fn named_or_find<T>(&mut self, name: PicoStr) -> SourceResult<Option<T>>
     where
         T: FromValue<Spanned<Value>>,
     {
@@ -262,7 +265,7 @@ impl Args {
     pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
             match &arg.name {
-                Some(name) => bail!(arg.span, "unexpected argument: {name}"),
+                Some(name) => bail!(arg.span, "unexpected argument: {}", name.resolve()),
                 _ => bail!(arg.span, "unexpected argument"),
             }
         }
@@ -281,13 +284,13 @@ impl Extend<Arg> for Args {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ArgumentKey {
     Index(i64),
-    Name(Str),
+    Name(PicoStr),
 }
 
 cast! {
     ArgumentKey,
     v: i64 => Self::Index(v),
-    v: Str => Self::Name(v),
+    v: Str => Self::Name(PicoStr::intern(&v)),
 }
 
 impl Args {
@@ -370,7 +373,7 @@ impl Args {
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
-            .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
+            .filter_map(|item| item.name.clone().map(|name| (Str::from(name.resolve().as_str()), item.value.v.clone())))
             .collect()
     }
 }
@@ -416,7 +419,7 @@ pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<Str>,
+    pub name: Option<PicoStr>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
@@ -436,7 +439,7 @@ impl Debug for Arg {
 impl Repr for Arg {
     fn repr(&self) -> EcoString {
         if let Some(name) = &self.name {
-            eco_format!("{}: {}", name, self.value.v.repr())
+            eco_format!("{}: {}", name.resolve(), self.value.v.repr())
         } else {
             self.value.v.repr()
         }
@@ -475,12 +478,18 @@ where
 /// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: ArgumentKey) -> EcoString {
-    eco_format!(
-        "arguments do not contain key {} \
-         and no default value was specified",
-        match key {
-            ArgumentKey::Index(i) => i.repr(),
-            ArgumentKey::Name(name) => name.repr(),
-        }
-    )
+    match key {
+        ArgumentKey::Index(i) =>
+            eco_format!(
+                "arguments do not contain key {} \
+                and no default value was specified",
+                i.repr()
+            ),
+        ArgumentKey::Name(name) =>
+        eco_format!(
+            "arguments do not contain key {} \
+            and no default value was specified",
+            name.resolve()
+        ),
+    }
 }

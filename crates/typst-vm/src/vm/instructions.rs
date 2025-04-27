@@ -1,33 +1,33 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Args, Array, Content, Dict, Func, IntoValue, Value};
 
-pub use super::access::FieldAccess;
-pub use super::binary::{
+pub(crate) use super::access::FieldAccess;
+pub(crate) use super::binary::{
     Add, AddAssign, And, Assign, AssignOp, BinaryOp, Div, DivAssign, Eq, Gt, Gte, In, Lt,
     Lte, Mul, MulAssign, Neq, NotIn, Or, Sub, SubAssign,
 };
-pub use super::call::{FuncCall, MethodCall, MutMethodCall, Reverse};
-pub use super::closure::Instantiate;
-pub use super::destruct::{Destructure, Write};
-pub use super::flow::{
+pub(crate) use super::call::{FuncCall, MethodCall, MutMethodCall, Reverse};
+pub(crate) use super::closure::Instantiate;
+pub(crate) use super::destruct::{Destructure, Write};
+pub(crate) use super::flow::{
     BreakOp, ContinueOp, Iter, Jump, JumpConditional, Next, ReturnOp, ReturnVal, Scoped,
 };
-pub use super::markup::{
+pub(crate) use super::markup::{
     Contextual, DynRef, Emph, Heading, OpsEnumItem, OpsListItem, OpsTermItem, Strong,
 };
-pub use super::math::{Attach, Delimited, Equation, Frac, Root};
-pub use super::ops::{
+pub(crate) use super::math::{Attach, Delimited, Equation, Frac, Root};
+pub(crate) use super::ops::{
     AllocateArray, AllocateDict, ArrayPush, ArraySpread, DictInsert, DictInsertKeyed,
     DictSpread, Duplicate, Join, Push,
 };
-pub use super::rules::{Set, Show, ShowSet};
-pub use super::unary::{Neg, Not, Pos};
+pub(crate) use super::rules::{Set, Show, ShowSet};
+pub(crate) use super::unary::{Neg, Not, Pos};
 use super::{Iterable, Vm};
 
 macro_rules! instructions {
     ($($name:ident),* $(,)*) => {
         #[derive(Debug, Clone, PartialEq, Hash)]
-        pub enum Instructions {
+        pub(crate) enum Instructions {
             Noop,
             Flow,
             $($name($name)),*

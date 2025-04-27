@@ -2,8 +2,8 @@ use typst_library::diag::SourceResult;
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
 
+use crate::vm::instructions::{JumpConditional, Set, Show, ShowSet};
 use crate::vm::{ArgSegment, Readable};
-use crate::vm::instructions::{Set, Show, JumpConditional, ShowSet};
 
 use super::call::ArgsExt;
 use super::{Compile, Compiler, Pointer};

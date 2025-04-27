@@ -4,7 +4,7 @@ use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use comemo::Track;
-use typst_utils::{singleton, NonZeroExt, Scalar};
+use typst_utils::{pico, singleton, NonZeroExt, Scalar};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -64,8 +64,8 @@ pub struct PageElem {
     /// ```
     #[resolve]
     #[parse(
-        let paper = args.named_or_find::<Paper>("paper")?;
-        args.named("width")?
+        let paper = args.named_or_find::<Paper>(pico!("paper"))?;
+        args.named(pico!("width"))?
             .or_else(|| paper.map(|paper| Smart::Custom(paper.width().into())))
     )]
     #[default(Smart::Custom(Paper::A4.width().into()))]
@@ -81,7 +81,7 @@ pub struct PageElem {
     /// content.
     #[resolve]
     #[parse(
-        args.named("height")?
+        args.named(pico!("height"))?
             .or_else(|| paper.map(|paper| Smart::Custom(paper.height().into())))
     )]
     #[default(Smart::Custom(Paper::A4.height().into()))]

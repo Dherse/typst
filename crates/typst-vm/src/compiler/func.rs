@@ -5,13 +5,13 @@ use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{Func, IntoValue};
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, PicoStr};
 
 use crate::closure::CompiledClosure;
 use crate::compiler::pattern::PatternCompile;
 use crate::compiler::{CompileTopLevel, InstructionList};
-use crate::vm::instructions::{Instantiate, Destructure, Contextual, Join};
-use crate::vm::{Readable, Pattern};
+use crate::vm::instructions::{Contextual, Destructure, Instantiate, Join};
+use crate::vm::{Pattern, Readable};
 use crate::CompiledParam;
 
 use super::{Compile, Compiler};
@@ -106,7 +106,7 @@ pub fn compile_closure(
                 parameters.push(CompiledParam::Named {
                     span: named.span(),
                     target: target.into(),
-                    name: name.clone(),
+                    name: PicoStr::intern(name),
                     default: defaults_iter.next().map(|r| r.clone().into()),
                 });
             }

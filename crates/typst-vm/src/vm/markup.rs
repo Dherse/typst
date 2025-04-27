@@ -26,7 +26,7 @@ impl Instruction for Strong {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let Value::Content(body) = vm.get(self.body, self.span)? else {
+        let Value::Content(body) = vm.get(self.body, self.span)?.into_owned() else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -54,7 +54,7 @@ impl Instruction for Emph {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let Value::Content(body) = vm.get(self.body, self.span)? else {
+        let Value::Content(body) = vm.get(self.body, self.span)?.into_owned() else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -83,7 +83,8 @@ impl Instruction for DynRef {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let Value::Content(supplement) = vm.get(self.supplement, self.span)? else {
+        let Value::Content(supplement) = vm.get(self.supplement, self.span)?.into_owned()
+        else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -112,7 +113,7 @@ impl Instruction for Heading {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let Value::Content(body) = vm.get(self.body, self.span)? else {
+        let Value::Content(body) = vm.get(self.body, self.span)?.into_owned() else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -140,7 +141,7 @@ impl Instruction for OpsListItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let Value::Content(body) = vm.get(self.body, self.span)? else {
+        let Value::Content(body) = vm.get(self.body, self.span)?.into_owned() else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -169,7 +170,7 @@ impl Instruction for OpsEnumItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let Value::Content(body) = vm.get(self.body, self.span)? else {
+        let Value::Content(body) = vm.get(self.body, self.span)?.into_owned() else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -200,11 +201,13 @@ impl Instruction for OpsTermItem {
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
         // Note: the order we 'get' these values from has to be the opposite order
         // has when we compiled them.
-        let Value::Content(description) = vm.get(self.description, self.span)? else {
+        let Value::Content(description) =
+            vm.get(self.description, self.span)?.into_owned()
+        else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
-        let Value::Content(term) = vm.get(self.term, self.span)? else {
+        let Value::Content(term) = vm.get(self.term, self.span)?.into_owned() else {
             bail!(self.span, "expected content on stack"; hint: "this is a compiler bug");
         };
 
@@ -233,7 +236,8 @@ impl Instruction for Contextual {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let closure = vm.get(self.closure, self.span)?.cast().at(self.span)?;
+        let closure =
+            vm.get(self.closure, self.span)?.into_owned().cast().at(self.span)?;
 
         Ok(ContextElem::new(closure).pack())
     }

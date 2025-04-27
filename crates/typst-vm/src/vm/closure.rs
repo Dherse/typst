@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use typst_library::diag::SourceResult;
@@ -12,7 +13,7 @@ use super::flow::Iterable;
 use super::Instruction;
 
 #[derive(Clone, PartialEq, Debug, Hash)]
-pub struct Instantiate {
+pub(crate) struct Instantiate {
     closure: Arc<LazyHash<CompiledSource>>,
     span: Span,
 }
@@ -42,7 +43,10 @@ impl Instruction for Instantiate {
                 CompiledParam::Named { span, target, name, default } => {
                     params.push(Param::Named {
                         name: name.clone(),
-                        default: default.map(|d| vm.get(d, *span)).transpose()?,
+                        default: default
+                            .map(|d| vm.get(d, *span))
+                            .transpose()?
+                            .map(Cow::into_owned),
                         target: *target,
                     });
                 }
@@ -56,7 +60,8 @@ impl Instruction for Instantiate {
         let capture_count = self.closure.captures.as_ref().map_or(0, |c| c.len());
         let mut captures = Vec::with_capacity(capture_count);
         for capture in self.closure.captures.iter().flat_map(|c| c.iter()) {
-            captures.push((capture.slot, vm.get(capture.readable, self.span)?));
+            captures
+                .push((capture.slot, vm.get(capture.readable, self.span)?.into_owned()));
         }
 
         Ok(Func::from(Closure::new(self.closure.clone(), params, captures)))

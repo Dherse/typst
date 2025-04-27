@@ -1,12 +1,12 @@
 //! Typst's code compiler & interpreter.
 
-pub mod closure;
+mod closure;
 mod compiler;
 mod vm;
 
 use std::sync::Arc;
 
-pub use self::vm::Vm;
+pub(crate) use self::vm::Vm;
 use closure::{Closure, Param};
 use compiler::{CompileTopLevel, Compiler, DeferredImports, InstructionList};
 use ecow::EcoString;
@@ -23,7 +23,7 @@ use typst_library::{Library, World};
 use typst_syntax::{
     ast, parse, parse_code, parse_math, FileId, Source, Span, SyntaxNode,
 };
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, PicoStr};
 use vm::{ControlFlow, Instructions, Readable};
 
 /// Evaluate a source file and return the resulting module.
@@ -273,7 +273,7 @@ pub fn eval_closure(
                 slots[*target] = args.expect::<Value>(name)?;
             }
             Param::Named { name, default, target } => {
-                if let Some(value) = args.named::<Value>(name)? {
+                if let Some(value) = args.named::<Value>(*name)? {
                     slots[*target] = value;
                 } else if let Some(default) = default {
                     slots[*target] = default.clone()
@@ -511,15 +511,6 @@ impl CompiledSource {
     }
 }
 
-/// Evaluate an expression.
-pub trait Eval {
-    /// The output of evaluating the expression.
-    type Output;
-
-    /// Evaluate the expression to the output value.
-    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output>;
-}
-
 #[derive(Clone, Hash, PartialEq, Debug)]
 pub enum CompiledParam {
     /// A positional parameter.
@@ -531,7 +522,7 @@ pub enum CompiledParam {
         /// The location where the parameter will be stored.
         target: usize,
         /// The name of the parameter.
-        name: EcoString,
+        name: PicoStr,
         /// The default value of the parameter.
         default: Option<Readable>,
     },

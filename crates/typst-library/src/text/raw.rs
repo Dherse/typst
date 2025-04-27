@@ -8,7 +8,7 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIter
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
-use typst_utils::ManuallyHash;
+use typst_utils::{pico, ManuallyHash};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
@@ -202,7 +202,7 @@ pub struct RawElem {
     ///     (* x (factorial (- x 1)))))
     /// ```
     /// ````
-    #[parse(match args.named("syntaxes")? {
+    #[parse(match args.named(pico!("syntaxes"))? {
         Some(sources) => Some(RawSyntax::load(engine.world, sources)?),
         None => None,
     })]
@@ -241,7 +241,7 @@ pub struct RawElem {
     /// #let hi = "Hello World"
     /// ```
     /// ````
-    #[parse(match args.named::<Spanned<Smart<Option<DataSource>>>>("theme")? {
+    #[parse(match args.named::<Spanned<Smart<Option<DataSource>>>>(pico!("theme"))? {
         Some(Spanned { v: Smart::Custom(Some(source)), span }) => Some(Smart::Custom(
             Some(RawTheme::load(engine.world, Spanned::new(source, span))?)
         )),

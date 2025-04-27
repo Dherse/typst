@@ -1,3 +1,5 @@
+use typst_utils::pico;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -313,13 +315,13 @@ pub struct BlockElem {
 
     /// The spacing between this block and its predecessor.
     #[parse(
-        let spacing = args.named("spacing")?;
-        args.named("above")?.or(spacing)
+        let spacing = args.named(pico!("spacing"))?;
+        args.named(pico!("above"))?.or(spacing)
     )]
     pub above: Smart<Spacing>,
 
     /// The spacing between this block and its successor.
-    #[parse(args.named("below")?.or(spacing))]
+    #[parse(args.named(pico!("below"))?.or(spacing))]
     pub below: Smart<Spacing>,
 
     /// Whether to clip the content inside the block.

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use typst_library::diag::{bail, At, SourceResult};
 use typst_library::foundations::{Recipe, ShowableSelector, Transformation, Value};
 use typst_syntax::Span;
@@ -27,7 +29,7 @@ impl Instruction for Set {
         let args = make_args(vm, &self.args)?;
 
         // Load the target function.
-        let target = match vm.get(self.target, self.span)? {
+        let target = match &*vm.get(self.target, self.span)? {
             Value::Func(func) => {
                 if let Some(elem) = func.element() {
                     elem
@@ -87,7 +89,7 @@ impl Instruction for ShowSet {
         let args = make_args(vm, &self.args)?;
 
         // Load the target function.
-        let target = match vm.get(self.target, self.span)? {
+        let target = match &*vm.get(self.target, self.span)? {
             Value::Func(func) => {
                 if let Some(elem) = func.element() {
                     elem
@@ -113,7 +115,7 @@ impl Instruction for ShowSet {
         // Load the selector.
         let selector = self
             .selector
-            .map(|selector| vm.get(selector, self.selector_span))
+            .map(|selector| vm.get(selector, self.selector_span).map(Cow::into_owned))
             .transpose()?
             .map(|v| v.cast::<ShowableSelector>().at(self.selector_span))
             .transpose()?;
@@ -165,13 +167,14 @@ impl Instruction for Show {
         // Load the arguments.
         let transform = vm
             .get(self.transform, self.span)?
+            .into_owned()
             .cast::<Transformation>()
             .at(self.span)?;
 
         // Load the selector.
         let selector = self
             .selector
-            .map(|selector| vm.get(selector, self.selector_span))
+            .map(|selector| vm.get(selector, self.selector_span).map(Cow::into_owned))
             .transpose()?
             .map(|v| v.cast::<ShowableSelector>().at(self.selector_span))
             .transpose()?;

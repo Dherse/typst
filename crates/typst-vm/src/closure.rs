@@ -6,7 +6,7 @@ use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{ClosureInner, Value};
 use typst_macros::cast;
 use typst_syntax::Span;
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, PicoStr};
 
 use crate::{CompiledParam, CompiledSource};
 
@@ -38,11 +38,6 @@ impl Closure {
         Self { compiled, params, captures, num_pos_params }
     }
 
-    /// Get the name of the closure.
-    pub fn name(&self) -> Option<&str> {
-        self.compiled.name().map(|v| &**v)
-    }
-
     pub(crate) fn no_instance(
         compiled: Arc<LazyHash<CompiledSource>>,
         compiler: &Compiler,
@@ -56,7 +51,7 @@ impl Closure {
                 CompiledParam::Named { span, target, name, default, .. } => {
                     let Some(default) = default else {
                         return Ok(Param::Named {
-                            name: name.clone(),
+                            name: *name,
                             default: None,
                             target: *target,
                         });
@@ -68,7 +63,7 @@ impl Closure {
                     };
 
                     Ok(Param::Named {
-                        name: name.clone(),
+                        name: *name,
                         default: Some(default),
                         target: *target,
                     })
@@ -114,7 +109,7 @@ pub enum Param {
     /// A named parameter.
     Named {
         /// The name of the parameter.
-        name: EcoString,
+        name: PicoStr,
         /// The default value of the parameter.
         default: Option<Value>,
         /// The target in which to store the value.

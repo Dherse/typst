@@ -27,8 +27,8 @@ macro_rules! binary {
             type Output = Value;
 
             fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Value> {
-                let rhs = vm.get(self.rhs, self.span)?;
-                let lhs = vm.get(self.lhs, self.span)?;
+                let rhs = vm.get(self.rhs, self.span)?.into_owned();
+                let lhs = vm.get(self.lhs, self.span)?.into_owned();
                 $ops(lhs, rhs).at(self.span)
             }
 
@@ -46,8 +46,7 @@ macro_rules! binary {
     };
 }
 
-pub trait BinaryOp: Into<Instructions>
-{
+pub trait BinaryOp: Into<Instructions> {
     fn create(lhs: Readable, rhs: Readable, span: Span) -> Self;
 }
 
@@ -85,7 +84,7 @@ macro_rules! binary_assign {
             type Output = ();
 
             fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<()> {
-                let rhs = vm.get(self.rhs, self.span)?;
+                let rhs = vm.get(self.rhs, self.span)?.into_owned();
 
                 vm.access(&self.lhs, |_vm, location| {
                     let lhs = std::mem::take(&mut *location);
@@ -101,8 +100,7 @@ macro_rules! binary_assign {
     };
 }
 
-pub trait AssignOp: Into<Instructions>
-{
+pub trait AssignOp: Into<Instructions> {
     fn create(lhs: MutAccess, rhs: Readable, span: Span) -> Self;
 }
 
@@ -128,7 +126,7 @@ impl Instruction for Assign {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<()> {
-        let rhs = vm.get(self.rhs, self.span)?;
+        let rhs = vm.get(self.rhs, self.span)?.into_owned();
 
         vm.set(&self.lhs, rhs)
     }

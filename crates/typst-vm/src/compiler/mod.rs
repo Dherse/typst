@@ -14,14 +14,12 @@ pub use self::import::{load_deferred_module, Resolve};
 pub use self::locals::Local;
 use self::locals::{ConstValue, Locals};
 
-use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::{mem, usize};
 
 use ecow::{eco_vec, EcoString};
@@ -35,7 +33,7 @@ use typst_syntax::package::PackageSpec;
 use typst_syntax::{FileId, Span};
 use typst_utils::{hash128, ScopedDeferred};
 
-use crate::vm::{FlowOp, Instruction, Instructions, Noop, Readable};
+use crate::vm::{FlowOp, Instructions, Noop, Readable};
 use crate::{CompiledParam, CompiledSource};
 
 pub trait Compile {

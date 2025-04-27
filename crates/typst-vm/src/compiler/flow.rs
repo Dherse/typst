@@ -3,7 +3,8 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{SyntaxKind, SyntaxNode};
 
 use crate::vm::instructions::{
-    BreakOp, ContinueOp, Iter, Jump, JumpConditional, Next, ReturnOp, ReturnVal, Scoped, Join, Push
+    BreakOp, ContinueOp, Iter, Join, Jump, JumpConditional, Next, Push, ReturnOp,
+    ReturnVal, Scoped,
 };
 use crate::vm::Readable;
 

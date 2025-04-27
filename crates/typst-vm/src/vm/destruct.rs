@@ -27,7 +27,7 @@ impl Instruction for Write {
         vm: &mut Vm,
         _: Option<&mut super::flow::Iterable>,
     ) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
         vm.slots[self.slot] = value;
         Ok(())
     }
@@ -58,7 +58,7 @@ impl Instruction for Destructure {
         vm: &mut Vm,
         _: Option<&mut super::flow::Iterable>,
     ) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         self.pattern.write(vm, value)?;
 
@@ -94,9 +94,7 @@ impl Pattern {
             })?,
             Self::Placeholder(_) => {}
             Self::Items(items, span) => match value {
-                Value::Array(array) => {
-                    destructure_array(vm, array.into_iter(), items, *span)?
-                }
+                Value::Array(array) => destructure_array(vm, array.iter(), items, *span)?,
                 Value::Dict(dict) => destructure_dict(vm, dict, items)?,
                 other => {
                     bail!(*span, "cannot destructure {}", other.ty())
@@ -121,7 +119,7 @@ pub enum PatternItem {
 }
 
 /// Perform destructuring on an array.
-fn destructure_array<I: ExactSizeIterator<Item = Value>>(
+fn destructure_array<'a, I: ExactSizeIterator<Item = &'a Value> + 'a>(
     vm: &mut Vm,
     mut items: I,
     tuple: &[PatternItem],
@@ -161,14 +159,14 @@ fn destructure_array<I: ExactSizeIterator<Item = Value>>(
 
                 // Resolve the access and write the value.
                 access.eval(vm, |_vm, out| {
-                    *out = item;
+                    *out = item.clone();
                     Ok(())
                 })?;
             }
             PatternItem::Nested(nested) => {
                 let item = next(&mut items, span)?;
 
-                nested.write(vm, item)?;
+                nested.write(vm, item.clone())?;
             }
             PatternItem::Spread(access) => {
                 let sink_size = (1 + len).checked_sub(tuple.len());
@@ -176,7 +174,7 @@ fn destructure_array<I: ExactSizeIterator<Item = Value>>(
 
                 if let Some(sink) = sink {
                     access.eval(vm, |_vm, out| {
-                        *out = sink.collect::<Array>().into_value();
+                        *out = sink.cloned().collect::<Array>().into_value();
 
                         Ok(())
                     })?;

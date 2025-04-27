@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use comemo::Track;
 use smallvec::{smallvec, SmallVec};
-use typst_utils::NonZeroExt;
+use typst_utils::{pico, NonZeroExt};
 
 use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
@@ -166,14 +166,14 @@ pub struct GridElem {
 
     /// The gaps between columns.
     #[parse(
-        let gutter = args.named("gutter")?;
-        args.named("column-gutter")?.or_else(|| gutter.clone())
+        let gutter = args.named(pico!("gutter"))?;
+        args.named(pico!("column-gutter"))?.or_else(|| gutter.clone())
     )]
     #[borrowed]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows.
-    #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
+    #[parse(args.named(pico!("row-gutter"))?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,
 

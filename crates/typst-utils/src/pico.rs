@@ -120,6 +120,16 @@ impl PicoStr {
     }
 }
 
+#[macro_export]
+macro_rules! pico {
+    ($str:literal) => {
+        {
+            const STR: $crate::PicoStr = $crate::PicoStr::constant($str);
+            STR
+        }
+    };
+}
+
 impl Debug for PicoStr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Debug::fmt(self.resolve().as_str(), f)
@@ -215,15 +225,21 @@ mod exceptions {
     /// A global list of non-bitcode-encodable compile-time internible strings.
     pub const LIST: &[&str] = &[
         "cjk-latin-spacing",
+        "column-gutter",
         "discretionary-ligatures",
+        "first-line-indent",
+        "footer-descent",
         "h5",
         "h6",
+        "hanging-indent",
+        "header-ascent",
         "historical-ligatures",
         "number-clearance",
         "number-margin",
         "numbering-scope",
         "page-numbering",
         "par-line-marker",
+        "stylistic-set",
         "transparentize",
     ];
 

@@ -1,3 +1,5 @@
+use typst_utils::pico;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -140,7 +142,7 @@ pub struct ScaleElem {
     /// The body will be mirrored horizontally if the parameter is negative.
     #[parse(
         let all = args.find()?;
-        args.named("x")?.or(all)
+        args.named(pico!("x"))?.or(all)
     )]
     #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
     pub x: Smart<ScaleAmount>,
@@ -148,7 +150,7 @@ pub struct ScaleElem {
     /// The vertical scaling factor.
     ///
     /// The body will be mirrored vertically if the parameter is negative.
-    #[parse(args.named("y")?.or(all))]
+    #[parse(args.named(pico!("y"))?.or(all))]
     #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
     pub y: Smart<ScaleAmount>,
 

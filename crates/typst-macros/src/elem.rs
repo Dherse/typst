@@ -820,7 +820,7 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
     } else if field.positional {
         quote! { args.find()? }
     } else {
-        quote! { args.named(#name)? }
+        quote! { args.named(typst_utils::pico!(#name))? }
     };
 
     (quote! {}, value)

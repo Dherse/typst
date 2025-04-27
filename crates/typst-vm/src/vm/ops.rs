@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use typst_library::diag::{bail, At, SourceResult};
 use typst_library::foundations::{Array, Dict, Str, Value};
 use typst_syntax::Span;
@@ -42,7 +44,7 @@ impl Instruction for ArrayPush {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         let top = vm.top_mut().at(self.span)?;
         let Value::Array(array) = top else {
@@ -79,7 +81,7 @@ impl Instruction for ArraySpread {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         let top = vm.top_mut().at(self.span)?;
         let Value::Array(array) = top else {
@@ -142,7 +144,7 @@ impl Instruction for DictInsert {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         let top = vm.top_mut().at(self.span)?;
         let Value::Dict(dict) = top else {
@@ -181,8 +183,8 @@ impl Instruction for DictInsertKeyed {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let key = vm.get(self.key, self.span)?.cast::<Str>().at(self.key_span)?;
-        let value = vm.get(self.value, self.span)?;
+        let key = vm.get(self.key, self.span)?.into_owned().cast::<Str>().at(self.key_span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         let top = vm.top_mut().at(self.span)?;
         let Value::Dict(dict) = top else {
@@ -219,7 +221,7 @@ impl Instruction for DictSpread {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         let top = vm.top_mut().at(self.span)?;
         let Value::Dict(dict) = top else {
@@ -260,7 +262,7 @@ impl Instruction for Push {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        vm.get(self.from, self.span)
+        vm.get(self.from, self.span).map(Cow::into_owned)
     }
 
     fn take_slot(&mut self, slot: usize) {
@@ -307,7 +309,7 @@ impl Instruction for Join {
     const FLOWABLE: bool = true;
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let value = vm.get(self.value, self.span)?;
+        let value = vm.get(self.value, self.span)?.into_owned();
 
         vm.joiner.join(value).at(self.span)?;
 
