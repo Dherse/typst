@@ -907,6 +907,24 @@ pub struct SequenceElem {
     pub children: Vec<Content>,
 }
 
+impl SequenceElem {
+    pub fn children_mut(&mut self) -> &mut Vec<Content> {
+        &mut self.children
+    }
+
+    pub fn push(&mut self, child: Content) {
+        self.children.push(child)
+    }
+
+    pub fn len(&self) -> usize {
+        self.children.len()
+    }
+
+    pub fn pop(&mut self) -> Option<Content> {
+        self.children.pop()
+    }
+}
+
 impl Debug for SequenceElem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Sequence ")?;

@@ -141,7 +141,7 @@ impl Eval for ast::Closure<'_> {
         };
 
         // Define the closure.
-        let closure = Closure {
+        /*let closure = Closure {
             node: self.to_untyped().clone(),
             defaults,
             captured,
@@ -152,7 +152,9 @@ impl Eval for ast::Closure<'_> {
                 .count(),
         };
 
-        Ok(Value::Func(Func::from(closure).spanned(self.params().span())))
+        Ok(Value::Func(Func::from(closure).spanned(self.params().span())))*/
+
+        todo!()
     }
 }
 
@@ -171,7 +173,7 @@ pub fn eval_closure(
     context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
-    let (name, params, body) = match closure.node.cast::<ast::Closure>() {
+    /*let (name, params, body) = match closure.node.cast::<ast::Closure>() {
         Some(node) => (node.name(), node.params(), node.body()),
         None => (None, ast::Params::default(), closure.node.cast().unwrap()),
     };
@@ -258,7 +260,8 @@ pub fn eval_closure(
         None => {}
     }
 
-    Ok(output)
+    Ok(output)*/
+    todo!()
 }
 
 /// This used only as the return value of `eval_field_call`.

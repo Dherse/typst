@@ -68,6 +68,14 @@ impl Styles {
         self.0.insert(0, LazyHash::new(outer));
     }
 
+    /// Apply an iterator of outer styles.
+    pub fn apply_iter<I: Into<LazyHash<Style>>>(
+        &mut self,
+        styles: impl IntoIterator<Item = I>,
+    ) {
+        self.0.extend(styles.into_iter().map(Into::into));
+    }
+
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {

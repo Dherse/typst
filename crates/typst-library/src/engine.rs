@@ -155,18 +155,23 @@ impl Sink {
     }
 
     /// Get the stored warnings.
-    pub fn warnings(self) -> EcoVec<SourceDiagnostic> {
-        self.warnings
+    pub fn warnings(&mut self) -> EcoVec<SourceDiagnostic> {
+        std::mem::take(&mut self.warnings)
     }
 
     /// Get the values for the traced span.
-    pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
-        self.values
+    pub fn values(&mut self) -> EcoVec<(Value, Option<Styles>)> {
+        std::mem::take(&mut self.values)
     }
 
     /// Extend from another sink.
     pub fn extend_from_sink(&mut self, other: Sink) {
         self.extend(other.delayed, other.warnings, other.values);
+    }
+
+    /// Whether this sink is empty.
+    pub fn is_empty(&self) -> bool {
+        self.delayed.is_empty() && self.warnings.is_empty() && self.values.is_empty()
     }
 }
 
@@ -194,7 +199,7 @@ impl Sink {
     }
 
     /// Extend from parts of another sink.
-    fn extend(
+    pub fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,
         warnings: EcoVec<SourceDiagnostic>,

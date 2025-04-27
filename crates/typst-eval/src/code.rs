@@ -358,8 +358,9 @@ impl Eval for ast::Contextual<'_> {
             visitor.finish()
         };
 
+        todo!()
         // Define the closure.
-        let closure = Closure {
+        /*let closure = Closure {
             node: self.body().to_untyped().clone(),
             defaults: vec![],
             captured,
@@ -367,7 +368,7 @@ impl Eval for ast::Contextual<'_> {
         };
 
         let func = Func::from(closure).spanned(body.span());
-        Ok(ContextElem::new(func).pack().spanned(body.span()))
+        Ok(ContextElem::new(func).pack().spanned(body.span()))*/
     }
 }
 

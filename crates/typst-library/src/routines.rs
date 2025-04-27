@@ -65,7 +65,7 @@ routines! {
     /// Call the closure in the context with the arguments.
     fn eval_closure(
         func: &Func,
-        closure: &LazyHash<Closure>,
+        closure: &Closure,
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,

@@ -13,7 +13,7 @@ mod round;
 mod scalar;
 
 pub use self::bitset::{BitSet, SmallBitSet};
-pub use self::deferred::Deferred;
+pub use self::deferred::{Deferred, ScopedDeferred};
 pub use self::duration::format_duration;
 pub use self::hash::{LazyHash, ManuallyHash};
 pub use self::pico::{PicoStr, ResolvedPicoStr};

@@ -1,12 +1,14 @@
 #[doc(inline)]
 pub use typst_macros::func;
 
+use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString};
-use typst_syntax::{ast, Span, SyntaxNode};
+use typst_syntax::Span;
 use typst_utils::{singleton, LazyHash, Static};
 
 use crate::diag::{bail, At, DeprecationSink, SourceResult, StrResult};
@@ -150,7 +152,7 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<LazyHash<Closure>>),
+    Closure(Closure),
     /// A plugin WebAssembly function.
     Plugin(Arc<PluginFunc>),
     /// A nested function with pre-applied arguments.
@@ -464,9 +466,42 @@ impl From<Element> for Func {
     }
 }
 
-impl From<Closure> for Func {
-    fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
+impl<T: ClosureInner> From<T> for Func {
+    fn from(closure: T) -> Self {
+        Repr::Closure(Closure(Arc::new(LazyHash::new(closure)))).into()
+    }
+}
+
+#[derive(Clone, Hash)]
+pub struct Closure(Arc<LazyHash<dyn ClosureInner>>);
+
+impl PartialEq for Closure {
+    fn eq(&self, other: &Self) -> bool {
+        *self.0 == *other.0
+    }
+}
+
+impl Closure {
+    fn name(&self) -> Option<&str> {
+        self.0.name()
+    }
+
+    pub fn downcast<T: ClosureInner>(&self) -> Option<&T> {
+        self.0.as_any().downcast_ref()
+    }
+}
+
+pub trait ClosureInner: Send + Sync + 'static {
+    fn name(&self) -> Option<&str>;
+
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl Hash for dyn ClosureInner {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.dyn_hash(state);
     }
 }
 
@@ -540,31 +575,4 @@ pub struct ParamInfo {
     pub required: bool,
     /// Is the parameter settable with a set rule?
     pub settable: bool,
-}
-
-/// A user-defined closure.
-#[derive(Debug, Hash)]
-pub struct Closure {
-    /// The closure's syntax node. Must be either castable to `ast::Closure` or
-    /// `ast::Expr`. In the latter case, this is a synthesized closure without
-    /// any parameters (used by `context` expressions).
-    pub node: SyntaxNode,
-    /// Default values of named parameters.
-    pub defaults: Vec<Value>,
-    /// Captured values from outer scopes.
-    pub captured: Scope,
-    /// The number of positional parameters in the closure.
-    pub num_pos_params: usize,
-}
-
-impl Closure {
-    /// The name of the closure.
-    pub fn name(&self) -> Option<&str> {
-        self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
-    }
-}
-
-cast! {
-    Closure,
-    self => Value::Func(self.into()),
 }

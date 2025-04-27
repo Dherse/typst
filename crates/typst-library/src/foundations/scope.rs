@@ -203,6 +203,16 @@ impl Scope {
         self.map.get(var)
     }
 
+    /// Try to access a binding immutably.
+    pub fn get_by_index(&self, index: usize) -> Option<&Binding> {
+        self.map.get_index(index).map(|(_, v)| v)
+    }
+
+    /// Try to access a binding immutably.
+    pub fn get_index(&self, var: &str) -> Option<usize> {
+        self.map.get_index_of(var)
+    }
+
     /// Try to access a binding mutably.
     pub fn get_mut(&mut self, var: &str) -> Option<&mut Binding> {
         self.map.get_mut(var)

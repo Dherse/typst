@@ -4,6 +4,7 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
@@ -543,8 +544,8 @@ impl RawSyntax {
         let list = sources
             .v
             .0
-            .iter()
-            .zip(&data)
+            .par_iter()
+            .zip(data.par_iter())
             .map(|(source, data)| Self::decode(source, data))
             .collect::<StrResult<_>>()
             .at(sources.span)?;

@@ -148,7 +148,7 @@ impl Eval for ast::Strong<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
-        if body.exprs().next().is_none() {
+        if body.is_empty() {
             vm.engine
                 .sink
                 .warn(warning!(
@@ -166,7 +166,7 @@ impl Eval for ast::Emph<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
-        if body.exprs().next().is_none() {
+        if body.is_empty() {
             vm.engine
                 .sink
                 .warn(warning!(

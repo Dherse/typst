@@ -203,6 +203,10 @@ impl<'a> Markup<'a> {
             })
             .filter_map(Expr::cast_with_space)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 /// An expression in markup, math or code.
@@ -335,6 +339,36 @@ impl<'a> Expr<'a> {
         match node.kind() {
             SyntaxKind::Space => Some(Self::Space(Space(node))),
             _ => Self::from_untyped(node),
+        }
+    }
+
+    /// Returns [`true`] if the result of this expression is expected to be
+    /// displayed. Although this is not obligated to be accurate.
+    pub fn is_display(&self) -> bool {
+        match self {
+            Self::ContentBlock(_)
+            | Self::Contextual(_)
+            | Self::Emph(_)
+            | Self::Strong(_)
+            | Self::Raw(_)
+            | Self::Link(_)
+            | Self::Label(_)
+            | Self::Ref(_)
+            | Self::Heading(_)
+            | Self::ListItem(_)
+            | Self::EnumItem(_)
+            | Self::TermItem(_)
+            | Self::Equation(_)
+            | Self::Math(_)
+            | Self::MathIdent(_)
+            | Self::MathAlignPoint(_)
+            | Self::MathDelimited(_)
+            | Self::MathAttach(_)
+            | Self::MathPrimes(_)
+            | Self::MathFrac(_)
+            | Self::MathRoot(_) => true,
+            Self::Parenthesized(paren) => paren.expr().is_display(),
+            _ => false,
         }
     }
 }

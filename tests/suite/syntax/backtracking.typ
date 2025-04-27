@@ -20,7 +20,7 @@
   for _ in range(100) {
     s = pat.replace("_", s)
   }
-  // Error: 8-9 cannot destructure integer
+  // Error: 8-9 cannot mutate a temporary value
   eval(s)
 }
 

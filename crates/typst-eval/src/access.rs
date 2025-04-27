@@ -73,7 +73,7 @@ impl Access for ast::FuncCall<'_> {
     }
 }
 
-pub(crate) fn access_dict<'a>(
+pub fn access_dict<'a>(
     vm: &'a mut Vm,
     access: ast::FieldAccess,
 ) -> SourceResult<&'a mut Dict> {

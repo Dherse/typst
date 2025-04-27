@@ -1072,6 +1072,12 @@ impl Array {
     }
 }
 
+impl<I: IntoValue> FromIterator<I> for Array {
+    fn from_iter<T: IntoIterator<Item = I>>(iter: T) -> Self {
+        Self(iter.into_iter().map(IntoValue::into_value).collect())
+    }
+}
+
 /// A value that can be cast to bytes.
 pub struct ToArray(Array);
 
@@ -1121,12 +1127,6 @@ impl AddAssign for Array {
 impl Extend<Value> for Array {
     fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
         self.0.extend(iter);
-    }
-}
-
-impl FromIterator<Value> for Array {
-    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        Self(iter.into_iter().collect())
     }
 }
 

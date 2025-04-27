@@ -23,7 +23,7 @@
 //! [parsed]: typst_syntax::parse
 //! [syntax tree]: typst_syntax::SyntaxNode
 //! [AST]: typst_syntax::ast
-//! [evaluate]: typst_eval::eval
+//! [evaluate]: typst_vm::eval
 //! [module]: crate::foundations::Module
 //! [content]: crate::foundations::Content
 //! [laid out]: typst_layout::layout_document
@@ -110,7 +110,7 @@ fn compile_impl<D: Document>(
         .map_err(|err| hint_invalid_main_file(world, err, main))?;
 
     // First evaluate the main source file into a module.
-    let content = typst_eval::eval(
+    let content = typst_vm::eval(
         &ROUTINES,
         world,
         traced,
@@ -328,8 +328,8 @@ mod sealed {
 ///
 /// This is essentially dynamic linking and done to allow for crate splitting.
 pub static ROUTINES: Routines = Routines {
-    eval_string: typst_eval::eval_string,
-    eval_closure: typst_eval::eval_closure,
+    eval_string: typst_vm::eval_string,
+    eval_closure: typst_vm::eval_closure,
     realize: typst_realize::realize,
     layout_fragment: typst_layout::layout_fragment,
     layout_frame: typst_layout::layout_frame,

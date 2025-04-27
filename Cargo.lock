@@ -1238,6 +1238,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edcd27d72f2f071c64249075f42e205ff93c9a4c5f6c6da53e79ed9f9832c285"
 
 [[package]]
+name = "impls"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a46645bbd70538861a90d0f26c31537cdf1e44aae99a794fb75a664b70951bc"
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2852,6 +2858,7 @@ dependencies = [
  "typst-syntax",
  "typst-timing",
  "typst-utils",
+ "typst-vm",
 ]
 
 [[package]]
@@ -3249,6 +3256,29 @@ dependencies = [
  "siphasher",
  "thin-vec",
  "unicode-math-class",
+]
+
+[[package]]
+name = "typst-vm"
+version = "0.13.1"
+dependencies = [
+ "bitflags 2.8.0",
+ "comemo",
+ "ecow",
+ "if_chain",
+ "impls",
+ "indexmap 2.7.1",
+ "rayon",
+ "smallvec",
+ "stacker",
+ "toml",
+ "typst-eval",
+ "typst-library",
+ "typst-macros",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+ "unicode-segmentation",
 ]
 
 [[package]]

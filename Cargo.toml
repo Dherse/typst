@@ -32,6 +32,7 @@ typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
+typst-vm = { path = "crates/typst-vm", version = "0.13.1" }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
 arrayvec = "0.7.4"
@@ -70,6 +71,7 @@ icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
+impls = "1.0.3"
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.6"
 krilla = { version = "0.4.0", default-features = false, features = ["raster-images", "comemo", "rayon"] }

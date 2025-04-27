@@ -128,6 +128,21 @@ impl Module {
         }
     }
 
+    /// Try to access a definition in the module.
+    pub fn field_by_index(
+        &self,
+        index: usize,
+        sink: impl DeprecationSink,
+    ) -> StrResult<&Value> {
+        match self.scope().get_by_index(index) {
+            Some(binding) => Ok(binding.read_checked(sink)),
+            None => match &self.name {
+                Some(name) => bail!("module `{name}` does not contain `{index}`"),
+                None => bail!("module does not contain `{index}`"),
+            },
+        }
+    }
+
     /// Extract the module's content.
     pub fn content(self) -> Content {
         match Arc::try_unwrap(self.inner) {

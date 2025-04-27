@@ -1,8 +1,6 @@
 [package]
-name = "typst"
-description = "A new markup-based typesetting system that is powerful and easy to learn."
-categories = ["compilers", "science"]
-keywords = ["markup", "typesetting", "typst"]
+name = "typst-vm"
+description = "Typst's code compiler & interpreter."
 version = { workspace = true }
 rust-version = { workspace = true }
 authors = { workspace = true }
@@ -10,21 +8,30 @@ edition = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
 typst-eval = { workspace = true }
-typst-html = { workspace = true }
-typst-layout = { workspace = true }
 typst-library = { workspace = true }
 typst-macros = { workspace = true }
-typst-realize = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
-typst-vm = { workspace = true }
+bitflags = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+if_chain = { workspace = true }
+impls = { workspace = true }
+indexmap = { workspace = true }
+rayon = { workspace = true }
+smallvec = { workspace = true }
+toml = { workspace = true }
+unicode-segmentation = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+stacker = { workspace = true }
 
 [lints]
 workspace = true

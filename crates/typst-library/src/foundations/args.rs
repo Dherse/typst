@@ -51,6 +51,10 @@ pub struct Args {
 }
 
 impl Args {
+    pub fn with_capacity(span: Span, capacity: usize) -> Self {
+        Self { span, items: EcoVec::with_capacity(capacity) }
+    }
+
     /// Create positional arguments from a span and values.
     pub fn new<T: IntoValue>(span: Span, values: impl IntoIterator<Item = T>) -> Self {
         let items = values
@@ -90,11 +94,20 @@ impl Args {
     }
 
     /// Push a positional argument.
-    pub fn push(&mut self, span: Span, value: Value) {
+    pub fn push(&mut self, span: Span, value_span: Span, value: Value) {
         self.items.push(Arg {
-            span: self.span,
+            span,
             name: None,
-            value: Spanned::new(value, span),
+            value: Spanned::new(value, value_span),
+        })
+    }
+
+    /// Push a positional argument.
+    pub fn push_named(&mut self, span: Span, value_span: Span, name: Str, value: Value) {
+        self.items.push(Arg {
+            span,
+            name: Some(name),
+            value: Spanned::new(value, value_span),
         })
     }
 
@@ -254,6 +267,12 @@ impl Args {
             }
         }
         Ok(())
+    }
+}
+
+impl Extend<Arg> for Args {
+    fn extend<T: IntoIterator<Item = Arg>>(&mut self, iter: T) {
+        self.items.extend(iter)
     }
 }
 
