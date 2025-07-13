@@ -183,7 +183,11 @@ impl Instruction for DictInsertKeyed {
     type Output = ();
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
-        let key = vm.get(self.key, self.span)?.into_owned().cast::<Str>().at(self.key_span)?;
+        let key = vm
+            .get(self.key, self.span)?
+            .into_owned()
+            .cast::<Str>()
+            .at(self.key_span)?;
         let value = vm.get(self.value, self.span)?.into_owned();
 
         let top = vm.top_mut().at(self.span)?;

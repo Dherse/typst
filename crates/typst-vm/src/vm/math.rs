@@ -240,7 +240,11 @@ impl Instruction for Frac {
             .into_owned()
             .display()
             .spanned(self.denom_span);
-        let num = vm.get(self.num, self.num_span)?.into_owned().display().spanned(self.num_span);
+        let num = vm
+            .get(self.num, self.num_span)?
+            .into_owned()
+            .display()
+            .spanned(self.num_span);
 
         // Write the value to the output.
         Ok(FracElem::new(num, denom).pack())
@@ -276,7 +280,10 @@ impl Instruction for Root {
 
     fn eval(&self, vm: &mut Vm, _: Option<&mut Iterable>) -> SourceResult<Self::Output> {
         // Obtain the degree and radicand.
-        let degree = self.degree.map(|d| vm.get(d, self.degree_span).map(Cow::into_owned)).transpose()?;
+        let degree = self
+            .degree
+            .map(|d| vm.get(d, self.degree_span).map(Cow::into_owned))
+            .transpose()?;
         let radicand = vm.get(self.radicand, self.radicand_span)?.into_owned();
 
         // Make the value into a root.

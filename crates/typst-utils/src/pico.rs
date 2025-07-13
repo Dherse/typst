@@ -119,12 +119,10 @@ impl PicoStr {
 
 #[macro_export]
 macro_rules! pico {
-    ($str:literal) => {
-        {
-            const STR: $crate::PicoStr = $crate::PicoStr::constant($str);
-            STR
-        }
-    };
+    ($str:literal) => {{
+        const STR: $crate::PicoStr = $crate::PicoStr::constant($str);
+        STR
+    }};
 }
 
 impl Debug for PicoStr {

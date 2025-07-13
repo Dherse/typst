@@ -104,7 +104,13 @@ impl Args {
     }
 
     /// Push a positional argument.
-    pub fn push_named(&mut self, span: Span, value_span: Span, name: PicoStr, value: Value) {
+    pub fn push_named(
+        &mut self,
+        span: Span,
+        value_span: Span,
+        name: PicoStr,
+        value: Value,
+    ) {
         self.items.push(Arg {
             span,
             name: Some(name),
@@ -373,7 +379,11 @@ impl Args {
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
-            .filter_map(|item| item.name.clone().map(|name| (Str::from(name.resolve().as_str()), item.value.v.clone())))
+            .filter_map(|item| {
+                item.name.clone().map(|name| {
+                    (Str::from(name.resolve().as_str()), item.value.v.clone())
+                })
+            })
             .collect()
     }
 }
@@ -479,14 +489,12 @@ where
 #[cold]
 fn missing_key_no_default(key: ArgumentKey) -> EcoString {
     match key {
-        ArgumentKey::Index(i) =>
-            eco_format!(
-                "arguments do not contain key {} \
+        ArgumentKey::Index(i) => eco_format!(
+            "arguments do not contain key {} \
                 and no default value was specified",
-                i.repr()
-            ),
-        ArgumentKey::Name(name) =>
-        eco_format!(
+            i.repr()
+        ),
+        ArgumentKey::Name(name) => eco_format!(
             "arguments do not contain key {} \
             and no default value was specified",
             name.resolve()

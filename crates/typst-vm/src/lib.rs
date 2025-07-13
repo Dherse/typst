@@ -20,7 +20,7 @@ use typst_library::introspection::Introspector;
 use typst_library::routines::Routines;
 use typst_library::{Library, World};
 use typst_syntax::{
-    ast, parse, parse_code, parse_math, FileId, Source, Span, SyntaxNode, SyntaxMode,
+    ast, parse, parse_code, parse_math, FileId, Source, Span, SyntaxMode, SyntaxNode,
 };
 use typst_utils::{LazyHash, PicoStr};
 use vm::{ControlFlow, Instructions, Readable};

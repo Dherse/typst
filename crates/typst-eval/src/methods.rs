@@ -44,8 +44,9 @@ pub(crate) fn call_method_mut(
         Value::Dict(dict) => match method {
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
-                output =
-                    dict.remove(args.expect("key")?, args.named(pico!("default"))?).at(span)?
+                output = dict
+                    .remove(args.expect("key")?, args.named(pico!("default"))?)
+                    .at(span)?
             }
             _ => return missing(),
         },

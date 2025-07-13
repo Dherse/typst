@@ -162,7 +162,8 @@ impl Compile for ast::Link<'_> {
 
 impl Compile for ast::Ref<'_> {
     fn compile(self, compiler: &mut Compiler) -> SourceResult<Readable> {
-        let target = Label::new(PicoStr::intern(self.target())).expect("unexpected empty reference");
+        let target = Label::new(PicoStr::intern(self.target()))
+            .expect("unexpected empty reference");
         if let Some(supplement) = self.supplement() {
             let supplement = supplement.compile(compiler)?;
             compiler.push(DynRef::new(target, supplement, self.span()));
