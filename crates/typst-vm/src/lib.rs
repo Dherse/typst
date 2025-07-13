@@ -36,8 +36,8 @@ pub fn eval(
     route: Tracked<Route>,
     source: &Source,
 ) -> SourceResult<Module> {
-    eprintln!("{:?}", std::mem::size_of::<Instructions>());
-    Instructions::print_size();
+    // eprintln!("{:?}", std::mem::size_of::<Instructions>());
+    // Instructions::print_size();
     // Prevent cyclic evaluation.
     let id = source.id();
     if route.contains(id) {

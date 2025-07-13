@@ -161,6 +161,12 @@ impl Dict {
 
         msg.into()
     }
+
+    /// Returns the raw index map of the dictionary.
+    pub fn into_raw(self) -> IndexMap<Str, Value> {
+        Arc::try_unwrap(self.0).unwrap_or_else(|rc| rc.as_ref().clone())
+    }
+
 }
 
 #[scope]

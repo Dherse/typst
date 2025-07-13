@@ -255,9 +255,10 @@ fn destructure_array<'a, I: ExactSizeIterator<Item = &'a Value> + 'a>(
 
 fn destructure_dict(
     vm: &mut Vm,
-    mut dict: Dict,
+    dict: Dict,
     tuple: &[PatternItem],
 ) -> SourceResult<()> {
+    let mut dict = dict.into_raw();
     let mut sink = None;
 
     for p in tuple {
@@ -284,7 +285,7 @@ fn destructure_dict(
             PatternItem::Single(access) => {
                 access.eval(vm, |_vm, out| {
                     *out = dict
-                        .remove(access.head_name.clone().into(), None)
+                        .remove(&access.head_name, None)
                         .at(access.span)?;
                     Ok(())
                 })?;
