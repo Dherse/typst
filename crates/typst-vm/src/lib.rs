@@ -11,7 +11,6 @@ use closure::{Closure, Param};
 use compiler::{CompileTopLevel, Compiler, DeferredImports, InstructionList};
 use ecow::EcoString;
 use typst_library::foundations::{Args, Closure as LibClosure, IntoValue};
-pub use typst_library::routines::EvalMode;
 
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::{bail, At, SourceResult};
@@ -21,7 +20,7 @@ use typst_library::introspection::Introspector;
 use typst_library::routines::Routines;
 use typst_library::{Library, World};
 use typst_syntax::{
-    ast, parse, parse_code, parse_math, FileId, Source, Span, SyntaxNode,
+    ast, parse, parse_code, parse_math, FileId, Source, Span, SyntaxNode, SyntaxMode,
 };
 use typst_utils::{LazyHash, PicoStr};
 use vm::{ControlFlow, Instructions, Readable};
@@ -60,7 +59,7 @@ pub fn eval(
         route,
         TrackedMut::reborrow_mut(&mut sink),
         source.root(),
-        EvalMode::Markup,
+        SyntaxMode::Markup,
         Some(world.library()),
         Some(name.clone().into()),
         None,
@@ -90,13 +89,13 @@ pub fn eval_string(
     mut sink: TrackedMut<Sink>,
     string: &str,
     span: Span,
-    mode: EvalMode,
+    mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
     let mut root = match mode {
-        EvalMode::Code => parse_code(string),
-        EvalMode::Markup => parse(string),
-        EvalMode::Math => parse_math(string),
+        SyntaxMode::Code => parse_code(string),
+        SyntaxMode::Markup => parse(string),
+        SyntaxMode::Math => parse_math(string),
     };
 
     root.synthesize(span);
@@ -337,7 +336,7 @@ pub fn compile(
     route: Tracked<Route>,
     sink: TrackedMut<Sink>,
     root: &SyntaxNode,
-    mode: EvalMode,
+    mode: SyntaxMode,
     library: Option<&LazyHash<Library>>,
     name: Option<EcoString>,
     pre_scope: Option<Scope>,
@@ -383,13 +382,13 @@ pub fn compile(
 
         // Compile the code.
         match mode {
-            EvalMode::Code => {
+            SyntaxMode::Code => {
                 root.cast::<ast::Code>().unwrap().compile_top_level(&mut compiler)?
             }
-            EvalMode::Markup => {
+            SyntaxMode::Markup => {
                 root.cast::<ast::Markup>().unwrap().compile_top_level(&mut compiler)?
             }
-            EvalMode::Math => {
+            SyntaxMode::Math => {
                 // root.cast::<ast::Math>().unwrap().compile(&mut compiler)?
                 todo!()
             }
@@ -398,7 +397,7 @@ pub fn compile(
         let compiled = compiler.finish(
             root.span(),
             name,
-            matches!(mode, EvalMode::Markup | EvalMode::Math),
+            matches!(mode, SyntaxMode::Markup | SyntaxMode::Math),
         )?;
 
         Ok(Arc::new(LazyHash::new(compiled)))

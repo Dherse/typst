@@ -119,7 +119,7 @@ impl Dict {
     }
 
     /// Iterate over pairs of references to the contained keys and values.
-    pub fn iter(&self) -> indexmap::map::Iter<Str, Value> {
+    pub fn iter(&self) -> indexmap::map::Iter<'_, Str, Value> {
         self.0.iter()
     }
 

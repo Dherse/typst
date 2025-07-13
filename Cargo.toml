@@ -33,8 +33,8 @@ typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
 typst-vm = { path = "crates/typst-vm", version = "0.13.1" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "edf0d64" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "bfa947f" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -48,7 +48,7 @@ clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = "0.1.1"
+codex = { git = "https://github.com/typst/codex", rev = "9ac86f9" }
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
@@ -70,12 +70,13 @@ icu_provider_adapters = "1.4"
 icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
-image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
+image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 impls = "1.0.3"
 indexmap = { version = "2", features = ["serde"] }
+infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
-krilla = { version = "0.4.0", default-features = false, features = ["raster-images", "comemo", "rayon"] }
-krilla-svg = "0.1.0"
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "20c14fe", default-features = false, features = ["raster-images", "comemo", "rayon"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "20c14fe" }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -136,6 +137,7 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.45", default-features = false, features = ["text"] }
+utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = "0.40.0"
 web-sys = "0.3"

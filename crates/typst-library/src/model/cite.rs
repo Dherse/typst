@@ -4,8 +4,7 @@ use typst_utils::pico;
 use crate::diag::{error, At, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Derived, Label, Packed, Show, Smart, StyleChain,
-    Synthesize,
+    cast, elem, Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
@@ -107,7 +106,6 @@ pub struct CiteElem {
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
     })]
-    #[borrowed]
     pub style: Smart<Derived<CslSource, CslStyle>>,
 
     /// The text language setting where the citation is.
@@ -124,8 +122,8 @@ pub struct CiteElem {
 impl Synthesize for Packed<CiteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_lang(TextElem::lang_in(styles));
-        elem.push_region(TextElem::region_in(styles));
+        elem.lang = Some(styles.get(TextElem::lang));
+        elem.region = Some(styles.get(TextElem::region));
         Ok(())
     }
 }
@@ -155,16 +153,15 @@ pub enum CitationForm {
 ///
 /// This is automatically created from adjacent citations during show rule
 /// application.
-#[elem(Locatable, Show)]
+#[elem(Locatable)]
 pub struct CiteGroup {
     /// The citations.
     #[required]
     pub children: Vec<Packed<CiteElem>>,
 }
 
-impl Show for Packed<CiteGroup> {
-    #[typst_macros::time(name = "cite", span = self.span())]
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+impl Packed<CiteGroup> {
+    pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
         let location = self.location().unwrap();
         let span = self.span();
         Works::generate(engine)

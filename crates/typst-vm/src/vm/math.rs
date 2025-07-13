@@ -184,15 +184,15 @@ impl Instruction for AttachRepr {
         let mut value = AttachElem::new(base.display());
 
         if let Some(top) = top {
-            value.push_t(Some(top.display().spanned(self.top_span)));
+            value = value.with_t(Some(top.display().spanned(self.top_span)));
         }
 
         if let Some(primes) = primes {
-            value.push_tr(Some(primes.display().spanned(self.primes_span)));
+            value = value.with_tr(Some(primes.display().spanned(self.primes_span)));
         }
 
         if let Some(bottom) = bottom {
-            value.push_b(Some(bottom.display().spanned(self.bottom_span)));
+            value = value.with_b(Some(bottom.display().spanned(self.bottom_span)));
         }
 
         // Write the value to the output.
@@ -283,7 +283,7 @@ impl Instruction for Root {
         let mut value = RootElem::new(radicand.display());
 
         if let Some(degree) = degree {
-            value.push_index(Some(degree.display()));
+            value = value.with_index(Some(degree.display()));
         }
 
         // Write the value to the output.

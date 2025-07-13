@@ -53,7 +53,6 @@ pub struct BoxElem {
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    #[resolve]
     pub baseline: Rel<Length>,
 
     /// The box's background color. See the
@@ -62,13 +61,11 @@ pub struct BoxElem {
 
     /// The box's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the box's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
-    #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
@@ -80,7 +77,6 @@ pub struct BoxElem {
     /// ```example
     /// #rect(inset: 0pt)[Tight]
     /// ```
-    #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
@@ -99,7 +95,6 @@ pub struct BoxElem {
     ///   radius: 2pt,
     /// )[rectangle].
     /// ```
-    #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -121,7 +116,6 @@ pub struct BoxElem {
 
     /// The contents of the box.
     #[positional]
-    #[borrowed]
     pub body: Option<Content>,
 }
 
@@ -264,25 +258,21 @@ pub struct BlockElem {
 
     /// The block's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the block's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
-    #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the block's content. See the
     /// [box's documentation]($box.inset) for more details.
-    #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
     /// the [box's documentation]($box.outset) for more details.
-    #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -360,7 +350,6 @@ pub struct BlockElem {
 
     /// The contents of the block.
     #[positional]
-    #[borrowed]
     pub body: Option<BlockBody>,
 }
 
@@ -499,7 +488,8 @@ mod callbacks {
 
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
-            #[derive(Debug, Clone, PartialEq, Hash)]
+            #[derive(Debug, Clone, Hash)]
+            #[allow(clippy::derived_hash_with_manual_eq)]
             pub struct $name {
                 captured: Content,
                 f: fn(&Content, $($param_ty),*) -> $ret,
@@ -535,6 +525,19 @@ mod callbacks {
 
                 pub fn call(&self, $($param: $param_ty),*) -> $ret {
                     (self.f)(&self.captured, $($param),*)
+                }
+            }
+
+            impl PartialEq for $name {
+                fn eq(&self, other: &Self) -> bool {
+                    // Comparing function pointers is problematic. Since for
+                    // each type of content, there is typically just one
+                    // callback, we skip it. It barely matters anyway since
+                    // getting into a comparison codepath for inline & block
+                    // elements containing callback bodies is close to
+                    // impossible (as these are generally generated in show
+                    // rules).
+                    self.captured.eq(&other.captured)
                 }
             }
         };

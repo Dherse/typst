@@ -146,7 +146,7 @@ impl Compile for ast::Raw<'_> {
         let lines = self.lines().map(|line| (line.get().clone(), line.span())).collect();
         let mut elem = RawElem::new(RawContent::Lines(lines)).with_block(self.block());
         if let Some(lang) = self.lang() {
-            elem.push_lang(Some(lang.get().clone()));
+            elem = elem.with_lang(Some(lang.get().clone()));
         }
 
         Ok(compiler.constant(elem.pack().into_value()))
@@ -162,7 +162,7 @@ impl Compile for ast::Link<'_> {
 
 impl Compile for ast::Ref<'_> {
     fn compile(self, compiler: &mut Compiler) -> SourceResult<Readable> {
-        let target = Label::new(PicoStr::intern(self.target()));
+        let target = Label::new(PicoStr::intern(self.target())).expect("unexpected empty reference");
         if let Some(supplement) = self.supplement() {
             let supplement = supplement.compile(compiler)?;
             compiler.push(DynRef::new(target, supplement, self.span()));
