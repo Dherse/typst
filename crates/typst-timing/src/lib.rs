@@ -65,7 +65,7 @@ thread_local! {
 static ENABLED: AtomicBool = AtomicBool::new(false);
 
 /// The list of collected events.
-static EVENTS: Mutex<Vec<Event>> = Mutex::new(Vec::new());
+static EVENTS: Mutex<Vec<&'static Event>> = Mutex::new(Vec::new());
 
 /// Enable the timer.
 #[inline]
@@ -152,40 +152,46 @@ pub fn export_json<W: Write>(
 
 /// A scope that records an event when it is dropped.
 #[must_use]
-pub struct TimingScope {
-    name: &'static str,
-    func: Option<String>,
-    args: EcoVec<(&'static str, EventArgument)>,
-}
+pub struct TimingScope(Box<Event>);
 
 impl TimingScope {
     /// Create a new scope if timing is enabled.
     #[inline]
     pub fn new(name: &'static str) -> Option<Self> {
         if is_enabled() {
-            Some(Self { name, func: None, args: EcoVec::new() })
+            let (thread_id, timestamp) =
+                THREAD_DATA.with(|data| (data.id, Timestamp::now_with(data)));
+
+            Some(Self(Box::new(Event {
+                kind: EventKind::Start,
+                timestamp,
+                name,
+                func: None,
+                thread_id,
+                arguments: EcoVec::new(),
+            })))
         } else {
             None
         }
     }
 
     pub fn with_func(mut self, func: impl ToString) -> Self {
-        self.func = Some(func.to_string());
+        self.0.func = Some(func.to_string());
         self
     }
 
     pub fn with_span(mut self, span: NonZeroU64) -> Self {
-        self.args.push(("span", EventArgument::Span(span)));
+        self.0.arguments.push(("span", EventArgument::Span(span)));
         self
     }
 
     pub fn with_callsite(mut self, callsite: NonZeroU64) -> Self {
-        self.args.push(("callsite", EventArgument::Span(callsite)));
+        self.0.arguments.push(("callsite", EventArgument::Span(callsite)));
         self
     }
 
     pub fn with_named_span(mut self, name: &'static str, span: NonZeroU64) -> Self {
-        self.args.push((name, EventArgument::Span(span)));
+        self.0.arguments.push((name, EventArgument::Span(span)));
         self
     }
 
@@ -205,36 +211,26 @@ impl TimingScope {
         value: impl Serialize,
     ) -> Result<Self, serde_json::Error> {
         let value = serde_json::to_value(value)?;
-        self.args.push((arg, EventArgument::Value(value)));
+        self.0.arguments.push((arg, EventArgument::Value(value)));
         Ok(self)
     }
 
     /// Create a new scope without checking if timing is enabled.
     pub fn build(self) -> TimingScopeGuard {
-        let (thread_id, timestamp) =
-            THREAD_DATA.with(|data| (data.id, Timestamp::now_with(data)));
-        let event = Event {
-            kind: EventKind::Start,
-            timestamp,
-            name: self.name,
-            func: self.func.clone(),
-            thread_id,
-            arguments: self.args.clone(),
-        };
-        EVENTS.lock().push(event.clone());
-        TimingScopeGuard { scope: Some(event) }
+        EVENTS.lock().push(Box::leak(self.0.clone()));
+        TimingScopeGuard { scope: Some(Box::leak(self.0)) }
     }
 }
 
 pub struct TimingScopeGuard {
-    scope: Option<Event>,
+    scope: Option<&'static mut Event>,
 }
 
 impl Drop for TimingScopeGuard {
     fn drop(&mut self) {
         let timestamp = Timestamp::now();
 
-        let mut scope = self.scope.take().expect("scope already dropped");
+        let scope = self.scope.take().expect("scope already dropped");
         scope.timestamp = timestamp;
         scope.kind = EventKind::End;
 
